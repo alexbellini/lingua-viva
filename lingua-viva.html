@@ -1,0 +1,608 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lingua Viva — Italian Immersion</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #0e0e10;
+      color: #e2e2e2;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* ── Setup screen ── */
+    #setup {
+      max-width: 380px;
+      width: 100%;
+      padding: 2.5rem 2rem;
+      text-align: center;
+    }
+
+    #setup h1 {
+      font-size: 2rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin-bottom: 0.4rem;
+    }
+
+    #setup h1 span { color: #6b7df5; }
+
+    #setup .tagline {
+      color: #666;
+      font-size: 0.9rem;
+      margin-bottom: 2rem;
+      line-height: 1.5;
+    }
+
+    input[type="password"] {
+      width: 100%;
+      padding: 0.75rem 1rem;
+      background: #18181c;
+      border: 1px solid #2e2e36;
+      border-radius: 8px;
+      color: #e2e2e2;
+      font-size: 0.95rem;
+      margin-bottom: 0.75rem;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+
+    input[type="password"]:focus { border-color: #6b7df5; }
+
+    /* ── Shared buttons ── */
+    button {
+      cursor: pointer;
+      border: none;
+      border-radius: 8px;
+      font-size: 0.95rem;
+      font-weight: 500;
+      padding: 0.7rem 1.4rem;
+      transition: opacity 0.15s, background 0.15s;
+    }
+
+    button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    .btn-primary {
+      background: #6b7df5;
+      color: #fff;
+      width: 100%;
+    }
+
+    .btn-primary:not(:disabled):hover { background: #5769e8; }
+
+    /* ── Error msg ── */
+    .error {
+      background: #1f1218;
+      border: 1px solid #5c2030;
+      border-radius: 8px;
+      padding: 0.65rem 0.9rem;
+      font-size: 0.82rem;
+      color: #f87171;
+      text-align: left;
+      margin-bottom: 0.75rem;
+      display: none;
+    }
+
+    .error.show { display: block; }
+
+    /* ── Main screen ── */
+    #main {
+      display: none;
+      width: 100%;
+      max-width: 600px;
+      padding: 1.25rem;
+      flex-direction: column;
+      gap: 0.9rem;
+    }
+
+    #main.show { display: flex; }
+
+    /* ── Camera ── */
+    #cam-wrap {
+      position: relative;
+      border-radius: 12px;
+      overflow: hidden;
+      background: #111;
+      aspect-ratio: 4/3;
+    }
+
+    #camera {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+      transform: scaleX(-1); /* mirror for selfie feel */
+    }
+
+    #status-pill {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: rgba(0,0,0,0.65);
+      backdrop-filter: blur(6px);
+      border-radius: 20px;
+      padding: 3px 11px;
+      font-size: 0.72rem;
+      font-weight: 500;
+      color: #888;
+      letter-spacing: 0.03em;
+    }
+
+    #status-pill.active   { color: #4ade80; }
+    #status-pill.thinking { color: #fbbf24; }
+    #status-pill.speaking { color: #818cf8; }
+    #status-pill.error    { color: #f87171; }
+
+    /* ── Toggle button ── */
+    #toggle-btn {
+      background: #6b7df5;
+      color: #fff;
+      font-size: 1rem;
+      padding: 0.75rem;
+    }
+
+    #toggle-btn:hover:not(:disabled) { background: #5769e8; }
+    #toggle-btn.running { background: #dc2626; }
+    #toggle-btn.running:hover:not(:disabled) { background: #b91c1c; }
+
+    /* ── Narration box ── */
+    #narration-box {
+      background: #16161a;
+      border: 1px solid #25252d;
+      border-radius: 12px;
+      padding: 1.1rem 1.2rem;
+    }
+
+    #narration-italian {
+      font-size: 1.2rem;
+      line-height: 1.65;
+      margin-bottom: 0.5rem;
+      min-height: 1.8rem;
+    }
+
+    #narration-italian.placeholder { color: #3a3a46; font-style: italic; font-size: 0.95rem; }
+
+    #narration-english {
+      font-size: 0.88rem;
+      color: #7a7a8a;
+      line-height: 1.5;
+      display: none;
+      margin-bottom: 0.7rem;
+    }
+
+    #narration-english.show { display: block; }
+
+    #trans-toggle {
+      background: transparent;
+      border: 1px solid #2e2e36;
+      color: #666;
+      font-size: 0.78rem;
+      padding: 3px 10px;
+    }
+
+    #trans-toggle:hover { border-color: #444; color: #999; }
+
+    /* ── Speak-back box ── */
+    #speak-back {
+      background: #16161a;
+      border: 1px solid #25252d;
+      border-radius: 12px;
+      padding: 1.1rem 1.2rem;
+      display: none;
+    }
+
+    #speak-back.show { display: block; }
+
+    #speak-label {
+      font-size: 0.72rem;
+      color: #555;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 0.6rem;
+    }
+
+    #speak-phrase {
+      font-size: 1.05rem;
+      line-height: 1.5;
+      margin-bottom: 0.9rem;
+    }
+
+    #speak-btn {
+      background: #1e1e26;
+      border: 1px solid #35353f;
+      color: #ccc;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      font-size: 0.88rem;
+      padding: 0.55rem 1rem;
+    }
+
+    #speak-btn:hover:not(:disabled) { background: #26262f; border-color: #4a4a58; }
+    #speak-btn.listening { border-color: #ef4444; color: #ef4444; }
+
+    #feedback-row {
+      margin-top: 0.75rem;
+      display: none;
+    }
+
+    #feedback-row.show { display: block; }
+
+    #feedback-label {
+      font-size: 0.95rem;
+      font-weight: 600;
+    }
+
+    #feedback-label.exact  { color: #4ade80; }
+    #feedback-label.close  { color: #fbbf24; }
+    #feedback-label.off    { color: #f87171; }
+
+    #feedback-heard {
+      font-size: 0.8rem;
+      color: #555;
+      margin-top: 0.25rem;
+    }
+
+    /* ── Main error ── */
+    #main-error { margin-top: 0; }
+  </style>
+</head>
+<body>
+
+<!-- ── Setup ── -->
+<div id="setup">
+  <h1>Lingua <span>Viva</span></h1>
+  <p class="tagline">Italian immersion through your camera.<br>Enter your Anthropic API key to begin.</p>
+  <input type="password" id="api-key-input" placeholder="sk-ant-api03-…" autocomplete="off" spellcheck="false" />
+  <div class="error" id="setup-error"></div>
+  <button class="btn-primary" id="setup-btn">Begin</button>
+</div>
+
+<!-- ── Main ── -->
+<div id="main">
+  <div id="cam-wrap">
+    <video id="camera" autoplay playsinline muted></video>
+    <div id="status-pill">Ready</div>
+  </div>
+
+  <button id="toggle-btn">Start</button>
+
+  <div id="narration-box">
+    <p id="narration-italian" class="placeholder">Narration will appear here…</p>
+    <p id="narration-english"></p>
+    <button id="trans-toggle">Show translation</button>
+  </div>
+
+  <div id="speak-back">
+    <div id="speak-label">Repeat after me</div>
+    <p id="speak-phrase"></p>
+    <button id="speak-btn">🎤 Tap to speak</button>
+    <div id="feedback-row">
+      <div id="feedback-label"></div>
+      <div id="feedback-heard"></div>
+    </div>
+  </div>
+
+  <div class="error" id="main-error"></div>
+</div>
+
+<script type="module">
+import Anthropic from 'https://esm.sh/@anthropic-ai/sdk@0.52.0';
+
+// ── Elements ──────────────────────────────────────────────────────────────────
+const setupEl     = document.getElementById('setup');
+const mainEl      = document.getElementById('main');
+const apiKeyInput = document.getElementById('api-key-input');
+const setupBtn    = document.getElementById('setup-btn');
+const setupError  = document.getElementById('setup-error');
+const mainError   = document.getElementById('main-error');
+
+const cameraEl     = document.getElementById('camera');
+const statusPill   = document.getElementById('status-pill');
+const toggleBtn    = document.getElementById('toggle-btn');
+
+const narrationItalian = document.getElementById('narration-italian');
+const narrationEnglish = document.getElementById('narration-english');
+const transToggle      = document.getElementById('trans-toggle');
+
+const speakBackEl  = document.getElementById('speak-back');
+const speakPhrase  = document.getElementById('speak-phrase');
+const speakBtn     = document.getElementById('speak-btn');
+const feedbackRow  = document.getElementById('feedback-row');
+const feedbackLabel = document.getElementById('feedback-label');
+const feedbackHeard = document.getElementById('feedback-heard');
+
+// ── State ─────────────────────────────────────────────────────────────────────
+let client         = null;
+let isRunning      = false;
+let loopRunning    = false;
+let showTranslation = false;
+let italianVoice   = null;
+
+// ── Voices ────────────────────────────────────────────────────────────────────
+function loadVoices() {
+  return new Promise(resolve => {
+    const pick = () => {
+      const voices = speechSynthesis.getVoices();
+      // Prefer a named Italian voice; fall back to any it- voice
+      italianVoice = voices.find(v => v.lang === 'it-IT' && v.localService)
+                  || voices.find(v => v.lang.startsWith('it'))
+                  || null;
+      resolve();
+    };
+    if (speechSynthesis.getVoices().length > 0) { pick(); return; }
+    speechSynthesis.addEventListener('voiceschanged', pick, { once: true });
+    setTimeout(pick, 1500); // fallback if event never fires
+  });
+}
+
+// ── Camera ────────────────────────────────────────────────────────────────────
+async function startCamera() {
+  const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+  cameraEl.srcObject = stream;
+  await new Promise(r => cameraEl.addEventListener('loadedmetadata', r, { once: true }));
+}
+
+function captureFrame() {
+  const w = cameraEl.videoWidth  || 640;
+  const h = cameraEl.videoHeight || 480;
+  const canvas = document.createElement('canvas');
+  canvas.width  = w;
+  canvas.height = h;
+  // Un-mirror before sending to Claude
+  const ctx = canvas.getContext('2d');
+  ctx.translate(w, 0);
+  ctx.scale(-1, 1);
+  ctx.drawImage(cameraEl, 0, 0, w, h);
+  return canvas.toDataURL('image/jpeg', 0.75).split(',')[1];
+}
+
+// ── Claude API ────────────────────────────────────────────────────────────────
+const PROMPT = `You are an Italian language tutor creating a beginner immersion experience.
+Look at this image and write a natural, present-tense narration of what you see.
+Rules:
+- Italian A1-A2 level: simple vocabulary, present tense, short sentences
+- 1–2 sentences, no more than 25 words total in Italian
+- Sound like a natural description, not a list
+- Return ONLY valid JSON with no markdown or code fences
+
+Format: {"italian": "...", "english": "..."}`;
+
+async function getNarration(base64Image) {
+  const msg = await client.messages.create({
+    model: 'claude-sonnet-4-6',
+    max_tokens: 150,
+    messages: [{
+      role: 'user',
+      content: [
+        { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: base64Image } },
+        { type: 'text', text: PROMPT }
+      ]
+    }]
+  });
+
+  const raw = msg.content[0].text.trim()
+    .replace(/^```(?:json)?\n?/, '')
+    .replace(/\n?```$/, '')
+    .trim();
+
+  return JSON.parse(raw);
+}
+
+// ── Speech synthesis ──────────────────────────────────────────────────────────
+function speak(text) {
+  return new Promise(resolve => {
+    speechSynthesis.cancel();
+    const utt = new SpeechSynthesisUtterance(text);
+    utt.lang  = 'it-IT';
+    utt.rate  = 0.82;
+    utt.pitch = 1;
+    if (italianVoice) utt.voice = italianVoice;
+    utt.onend   = resolve;
+    utt.onerror = resolve;
+    speechSynthesis.speak(utt);
+  });
+}
+
+// ── Speech recognition ────────────────────────────────────────────────────────
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+const hasSR = Boolean(SR);
+
+function listenOnce() {
+  return new Promise(resolve => {
+    if (!hasSR) { resolve(null); return; }
+    const rec = new SR();
+    rec.lang = 'it-IT';
+    rec.interimResults = false;
+    rec.maxAlternatives = 3;
+    let resolved = false;
+    const done = v => { if (!resolved) { resolved = true; resolve(v); } };
+    rec.onresult = e => done(Array.from(e.results[0]).map(r => r.transcript)[0] || null);
+    rec.onerror  = () => done(null);
+    rec.onend    = () => done(null);
+    try { rec.start(); } catch { done(null); }
+  });
+}
+
+// ── Text comparison ───────────────────────────────────────────────────────────
+function compareSpoken(target, spoken) {
+  if (!spoken) return 'off';
+  const norm = s => s.toLowerCase()
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z\s]/g, '')
+    .trim();
+  const t = norm(target);
+  const s = norm(spoken);
+  if (t === s) return 'exact';
+  const tWords = t.split(/\s+/).filter(Boolean);
+  const sSet   = new Set(s.split(/\s+/).filter(Boolean));
+  const hits   = tWords.filter(w => sSet.has(w)).length;
+  return hits / tWords.length >= 0.65 ? 'close' : 'off';
+}
+
+// ── Speak-back phase ──────────────────────────────────────────────────────────
+async function speakBackPhase(phrase) {
+  speakPhrase.textContent = phrase;
+  feedbackRow.classList.remove('show');
+  feedbackLabel.className = '';
+  feedbackLabel.textContent = '';
+  feedbackHeard.textContent = '';
+  speakBtn.disabled = false;
+  speakBtn.className = '';
+  speakBtn.textContent = '🎤 Tap to speak';
+  speakBackEl.classList.add('show');
+
+  if (!hasSR) {
+    // No recognition support — just show phrase for 8s then move on
+    await delay(8000);
+    speakBackEl.classList.remove('show');
+    return;
+  }
+
+  await new Promise(resolve => {
+    let done = false;
+    const finish = () => {
+      if (done) return;
+      done = true;
+      clearTimeout(autoSkip);
+      speakBtn.onclick = null;
+      speakBackEl.classList.remove('show');
+      resolve();
+    };
+
+    // Auto-skip if user doesn't interact
+    const autoSkip = setTimeout(finish, 11000);
+
+    speakBtn.onclick = async () => {
+      if (done) return;
+      clearTimeout(autoSkip);
+      speakBtn.disabled = true;
+      speakBtn.classList.add('listening');
+      speakBtn.textContent = '🔴 Listening…';
+
+      const heard = await listenOnce();
+
+      if (!isRunning) { finish(); return; }
+
+      const result = compareSpoken(phrase, heard);
+      const messages = { exact: 'Perfetto! ✓', close: 'Quasi — close enough ✓', off: 'Keep practicing' };
+      feedbackLabel.className = result;
+      feedbackLabel.textContent = messages[result];
+      feedbackHeard.textContent = heard ? `Heard: "${heard}"` : 'Nothing detected';
+      feedbackRow.classList.add('show');
+
+      await delay(3500);
+      finish();
+    };
+  });
+}
+
+// ── Core loop ─────────────────────────────────────────────────────────────────
+async function runLoop() {
+  loopRunning = true;
+  while (isRunning) {
+    setStatus('thinking', 'Analyzing…');
+
+    let narration;
+    try {
+      narration = await getNarration(captureFrame());
+    } catch (err) {
+      console.error('API error:', err);
+      showError(mainError, `API error: ${err.message || 'Unknown — check console'}`);
+      setStatus('error', 'Error');
+      await delay(6000);
+      if (isRunning) hideError(mainError);
+      continue;
+    }
+
+    if (!isRunning) break;
+    hideError(mainError);
+
+    // Show narration text
+    narrationItalian.classList.remove('placeholder');
+    narrationItalian.textContent = narration.italian;
+    narrationEnglish.textContent = narration.english;
+
+    setStatus('speaking', 'Speaking…');
+    await speak(narration.italian);
+
+    if (!isRunning) break;
+
+    // Speak-back
+    await speakBackPhase(narration.italian);
+
+    if (!isRunning) break;
+
+    setStatus('active', 'Running');
+    // Brief pause before next capture
+    await delay(3000);
+  }
+  loopRunning = false;
+}
+
+// ── Controls ──────────────────────────────────────────────────────────────────
+toggleBtn.addEventListener('click', () => {
+  if (isRunning) {
+    isRunning = false;
+    speechSynthesis.cancel();
+    speakBackEl.classList.remove('show');
+    toggleBtn.textContent = 'Start';
+    toggleBtn.classList.remove('running');
+    setStatus('', 'Ready');
+  } else {
+    isRunning = true;
+    toggleBtn.textContent = 'Stop';
+    toggleBtn.classList.add('running');
+    hideError(mainError);
+    if (!loopRunning) runLoop();
+  }
+});
+
+transToggle.addEventListener('click', () => {
+  showTranslation = !showTranslation;
+  narrationEnglish.classList.toggle('show', showTranslation);
+  transToggle.textContent = showTranslation ? 'Hide translation' : 'Show translation';
+});
+
+// ── Setup flow ────────────────────────────────────────────────────────────────
+setupBtn.addEventListener('click', async () => {
+  const key = apiKeyInput.value.trim();
+  if (!key) { showError(setupError, 'Please enter your Anthropic API key.'); return; }
+
+  setupBtn.disabled = true;
+  setupBtn.textContent = 'Setting up…';
+  hideError(setupError);
+
+  try {
+    client = new Anthropic({ apiKey: key, dangerouslyAllowBrowser: true });
+    await Promise.all([startCamera(), loadVoices()]);
+    setupEl.style.display = 'none';
+    mainEl.classList.add('show');
+  } catch (err) {
+    showError(setupError, 'Could not access camera. Please allow camera permissions and try again.');
+    setupBtn.disabled = false;
+    setupBtn.textContent = 'Begin';
+  }
+});
+
+apiKeyInput.addEventListener('keydown', e => { if (e.key === 'Enter') setupBtn.click(); });
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function setStatus(cls, text) {
+  statusPill.className = cls;
+  statusPill.textContent = text;
+}
+
+function showError(el, msg) { el.textContent = msg; el.classList.add('show'); }
+function hideError(el) { el.classList.remove('show'); }
+function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
+</script>
+</body>
+</html>
