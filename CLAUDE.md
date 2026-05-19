@@ -47,6 +47,10 @@ git push
 ```
 GitHub Pages rebuilds automatically (~1 min). No CI, no build step needed.
 
+## Working with Claude Code (Desktop app)
+CLAUDE.md does not auto-load in the Desktop app Code tab. Start each new session with:
+> "read CLAUDE.md — then [your request]"
+
 ## Known constraints
 - `SpeechRecognition` is Chrome/Edge only — degrades gracefully on other browsers (speak-back phase auto-skips)
 - Italian TTS quality varies by OS (macOS has Alice, Windows has Elsa)
