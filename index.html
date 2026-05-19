@@ -480,20 +480,18 @@ function loadVoices() {
 
 // ── Camera ────────────────────────────────────────────────────────────────────
 async function startCamera() {
-  const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+  // Request audio alongside video so both permission prompts fire within the same
+  // user gesture on mobile. Audio tracks are dropped immediately; the audio stream
+  // is only needed to prime mic permission for SpeechRecognition later.
+  const constraints = hasSR ? { video: true, audio: true } : { video: true, audio: false };
+  const stream = await navigator.mediaDevices.getUserMedia(constraints);
+  stream.getAudioTracks().forEach(t => t.stop());
   cameraEl.srcObject = stream;
   await new Promise(r => cameraEl.addEventListener('loadedmetadata', r, { once: true }));
 }
 
-// iOS Safari won't show a microphone prompt when SpeechRecognition.start() fires
-// unless audio permission has already been granted via getUserMedia in a user gesture.
-// We request + immediately release an audio stream during setup to prime it.
 async function primeMicPermission() {
-  if (!hasSR) return;
-  try {
-    const s = await navigator.mediaDevices.getUserMedia({ audio: true });
-    s.getTracks().forEach(t => t.stop());
-  } catch { /* denied or unavailable — speak-back will degrade gracefully */ }
+  // Permission already primed inside startCamera — nothing to do here.
 }
 
 function captureFrame() {
