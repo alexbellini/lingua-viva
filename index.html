@@ -588,11 +588,12 @@ function listenOnce() {
     let resolved = false;
     const done = v => { if (!resolved) { resolved = true; resolve(v); } };
     rec.onresult = e => done(Array.from(e.results[0]).map(r => r.transcript)[0] || null);
-    rec.onerror  = () => done(null);
+    rec.onerror  = e => { lastSRError = e.error; done(null); };
     rec.onend    = () => done(null);
     try { rec.start(); } catch { done(null); }
   });
 }
+let lastSRError = null;
 
 // ── Text comparison (fallback) ────────────────────────────────────────────────
 function compareSpoken(target, spoken) {
@@ -706,7 +707,7 @@ async function speakBackPhase(phrase) {
       const messages = { exact: 'Perfetto! ✓', close: 'Quasi — close enough ✓', off: 'Keep practicing' };
       feedbackLabel.className   = result;
       feedbackLabel.textContent = messages[result];
-      feedbackHeard.textContent = heard ? `Heard: "${heard}"` : 'Nothing detected';
+      feedbackHeard.textContent = heard ? `Heard: "${heard}"` : (lastSRError ? `Error: ${lastSRError}` : 'Nothing detected');
 
       // [NEW] Show coaching tip if we got one
       if (tip) {
