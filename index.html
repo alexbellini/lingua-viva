@@ -587,10 +587,15 @@ function listenOnce() {
     rec.maxAlternatives = 3;
     let resolved = false;
     const done = v => { if (!resolved) { resolved = true; resolve(v); } };
-    rec.onresult = e => done(Array.from(e.results[0]).map(r => r.transcript)[0] || null);
+    // Stop immediately on result so iOS doesn't hang waiting for silence detection
+    rec.onresult = e => { const t = Array.from(e.results[0]).map(r => r.transcript)[0] || null; try { rec.stop(); } catch {} done(t); };
     rec.onerror  = e => { lastSRError = e.error; done(null); };
     rec.onend    = () => done(null);
-    try { rec.start(); } catch { done(null); }
+    // Hard 8s timeout in case iOS never fires onresult or onend
+    const timeout = setTimeout(() => { try { rec.stop(); } catch {} done(null); }, 8000);
+    const cleanup = () => clearTimeout(timeout);
+    rec.addEventListener('end', cleanup, { once: true });
+    try { rec.start(); } catch { cleanup(); done(null); }
   });
 }
 let lastSRError = null;
