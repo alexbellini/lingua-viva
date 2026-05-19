@@ -485,6 +485,17 @@ async function startCamera() {
   await new Promise(r => cameraEl.addEventListener('loadedmetadata', r, { once: true }));
 }
 
+// iOS Safari won't show a microphone prompt when SpeechRecognition.start() fires
+// unless audio permission has already been granted via getUserMedia in a user gesture.
+// We request + immediately release an audio stream during setup to prime it.
+async function primeMicPermission() {
+  if (!hasSR) return;
+  try {
+    const s = await navigator.mediaDevices.getUserMedia({ audio: true });
+    s.getTracks().forEach(t => t.stop());
+  } catch { /* denied or unavailable — speak-back will degrade gracefully */ }
+}
+
 function captureFrame() {
   const w = cameraEl.videoWidth  || 640;
   const h = cameraEl.videoHeight || 480;
@@ -806,6 +817,7 @@ setupBtn.addEventListener('click', async () => {
   try {
     client = new Anthropic({ apiKey: key, dangerouslyAllowBrowser: true });
     await Promise.all([startCamera(), loadVoices()]);
+    await primeMicPermission(); // prompt for mic on iOS before SpeechRecognition needs it
     setupEl.style.display = 'none';
     mainEl.classList.add('show');
   } catch (err) {
