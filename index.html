@@ -780,18 +780,26 @@ function playFeedbackSound(result) {
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
 const hasSR = Boolean(SR);
 
-function listenOnce() {
+function listenOnce(locale) {
   return new Promise(resolve => {
     if (!hasSR) { resolve(null); return; }
     const rec = new SR();
-    rec.lang = LANGUAGES[selectedLanguage].locale;
+    rec.lang = locale;
     rec.interimResults = false;
     rec.maxAlternatives = 3;
     let resolved = false;
-    const done = v => { if (!resolved) { resolved = true; resolve(v); } };
+    let pendingError = null;
+    // Capture error before resolving — Chrome sometimes fires onend before onerror
+    const done = v => {
+      if (!resolved) {
+        resolved = true;
+        if (pendingError) lastSRError = pendingError;
+        resolve(v);
+      }
+    };
     // Stop immediately on result so iOS doesn't hang waiting for silence detection
     rec.onresult = e => { const t = Array.from(e.results[0]).map(r => r.transcript)[0] || null; try { rec.stop(); } catch {} done(t); };
-    rec.onerror  = e => { lastSRError = e.error; done(null); };
+    rec.onerror  = e => { pendingError = e.error; lastSRError = e.error; done(null); };
     rec.onend    = () => done(null);
     // Hard 8s timeout in case iOS never fires onresult or onend
     const timeout = setTimeout(() => { try { rec.stop(); } catch {} done(null); }, 8000);
@@ -801,6 +809,19 @@ function listenOnce() {
   });
 }
 let lastSRError = null;
+
+// Try the full locale first; if it returns nothing silently, retry with base language code
+async function listenWithFallback() {
+  const lang = LANGUAGES[selectedLanguage];
+  lastSRError = null;
+  let heard = await listenOnce(lang.locale);
+  if (heard === null && !lastSRError) {
+    // Silent failure — language model may not have loaded; retry with base code
+    lastSRError = null;
+    heard = await listenOnce(lang.langStart);
+  }
+  return heard;
+}
 
 // ── Text comparison (fallback) ────────────────────────────────────────────────
 function compareSpoken(target, spoken) {
@@ -887,7 +908,7 @@ async function speakBackPhase(phrase) {
       speakBtn.classList.add('listening');
       speakBtn.textContent = '🔴 Listening…';
 
-      const heard = await listenOnce();
+      const heard = await listenWithFallback();
 
       if (!isRunning) { finish(); return; }
 
@@ -911,7 +932,7 @@ async function speakBackPhase(phrase) {
       else                         performanceScore = Math.max(0, performanceScore - 0.10);
 
       // Show feedback
-      const messages = { exact: 'Perfetto! ✓', close: 'Quasi — close enough ✓', off: 'Keep practicing' };
+      const messages = { exact: 'Perfect! ✓', close: 'Close enough ✓', off: 'Keep practicing' };
       feedbackLabel.className   = result;
       feedbackLabel.textContent = messages[result];
       playFeedbackSound(result);
