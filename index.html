@@ -17,44 +17,87 @@
       justify-content: center;
     }
 
-    /* ── Setup screen ── */
-    #setup {
-      max-width: 380px;
-      width: 100%;
-      padding: 2.5rem 2rem;
+    /* ── Welcome screen ── */
+    #welcome-screen {
+      position: fixed;
+      inset: 0;
+      background: #0e0e10;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 1.5rem;
+      z-index: 100;
       text-align: center;
+      padding: 2rem;
     }
 
-    #setup h1 {
-      font-size: 2rem;
+    #greeting-text {
+      font-size: 4rem;
       font-weight: 700;
+      letter-spacing: -0.03em;
+      color: #6b7df5;
+      opacity: 1;
+      transition: opacity 0.4s ease;
+      min-height: 5rem;
+      display: flex;
+      align-items: center;
+    }
+
+    #welcome-brand h1 {
+      font-size: 1.5rem;
+      font-weight: 600;
       letter-spacing: -0.02em;
-      margin-bottom: 0.4rem;
+      margin-bottom: 0.3rem;
     }
 
-    #setup h1 span { color: #6b7df5; }
+    #welcome-brand h1 span { color: #6b7df5; }
 
-    #setup .tagline {
-      color: #666;
+    #welcome-brand p {
       font-size: 0.9rem;
-      margin-bottom: 2rem;
-      line-height: 1.5;
+      color: #555;
     }
 
-    input[type="password"] {
+    #welcome-screen .btn-primary {
+      max-width: 200px;
+      margin-top: 0.5rem;
+    }
+
+    #key-entry {
       width: 100%;
-      padding: 0.75rem 1rem;
+      max-width: 300px;
+      display: none;
+    }
+
+    #key-entry input {
+      width: 100%;
+      padding: 0.7rem 1rem;
       background: #18181c;
       border: 1px solid #2e2e36;
       border-radius: 8px;
       color: #e2e2e2;
-      font-size: 0.95rem;
-      margin-bottom: 0.75rem;
+      font-size: 0.9rem;
+      text-align: center;
       outline: none;
       transition: border-color 0.15s;
     }
 
-    input[type="password"]:focus { border-color: #6b7df5; }
+    #key-entry input:focus { border-color: #6b7df5; }
+
+    #key-entry p {
+      font-size: 0.75rem;
+      color: #3a3a4a;
+      margin-top: 0.4rem;
+    }
+
+    #key-entry .key-error {
+      color: #f87171;
+      font-size: 0.78rem;
+      margin-top: 0.35rem;
+      display: none;
+    }
+
+    #key-entry .key-error.show { display: block; }
 
     /* ── Shared buttons ── */
     button {
@@ -118,7 +161,6 @@
       height: 100%;
       object-fit: cover;
       display: block;
-      transform: scaleX(-1); /* mirror for selfie feel */
     }
 
     #status-pill {
@@ -157,6 +199,24 @@
     }
 
     #review-badge.show { display: block; }
+
+    /* ── Flip camera button ── */
+    #flip-btn {
+      position: absolute;
+      bottom: 10px;
+      right: 10px;
+      background: rgba(0,0,0,0.65);
+      backdrop-filter: blur(6px);
+      border-radius: 20px;
+      padding: 4px 14px;
+      font-size: 1.1rem;
+      color: #6b7df5;
+      display: none;
+      border: 1px solid rgba(107,125,245,0.3);
+    }
+
+    #flip-btn.show { display: block; }
+    #flip-btn:hover { background: rgba(107,125,245,0.15); }
 
     /* ── Toggle button ── */
     #toggle-btn {
@@ -312,13 +372,19 @@
 </head>
 <body>
 
-<!-- ── Setup ── -->
-<div id="setup">
-  <h1>Lingua <span>Viva</span></h1>
-  <p class="tagline">Italian immersion through your camera.<br>Enter your Anthropic API key to begin.</p>
-  <input type="password" id="api-key-input" placeholder="sk-ant-api03-…" autocomplete="off" spellcheck="false" />
-  <div class="error" id="setup-error"></div>
-  <button class="btn-primary" id="setup-btn">Begin</button>
+<!-- ── Welcome ── -->
+<div id="welcome-screen">
+  <div id="greeting-text">ciao</div>
+  <div id="welcome-brand">
+    <h1>Lingua <span>Viva</span></h1>
+    <p>Learn Italian through your world.</p>
+  </div>
+  <div id="key-entry">
+    <input type="password" id="key-input" placeholder="sk-ant-api03-…" autocomplete="off" spellcheck="false" />
+    <p>Saved to this browser — you won't be asked again.</p>
+    <p class="key-error" id="key-error">Please enter a valid API key.</p>
+  </div>
+  <button class="btn-primary" id="start-btn">Start</button>
 </div>
 
 <!-- ── Main ── -->
@@ -328,6 +394,7 @@
     <div id="status-pill">Ready</div>
     <!-- [NEW] Review badge -->
     <div id="review-badge">🔁 Review</div>
+    <button id="flip-btn" title="Flip camera">⇄</button>
   </div>
 
   <button id="toggle-btn">Start</button>
@@ -358,18 +425,17 @@
 <script type="module">
 import Anthropic from 'https://esm.sh/@anthropic-ai/sdk@0.52.0';
 
-// ── Elements ──────────────────────────────────────────────────────────────────
-const setupEl     = document.getElementById('setup');
-const mainEl      = document.getElementById('main');
-const apiKeyInput = document.getElementById('api-key-input');
-const setupBtn    = document.getElementById('setup-btn');
-const setupError  = document.getElementById('setup-error');
-const mainError   = document.getElementById('main-error');
 
-const cameraEl     = document.getElementById('camera');
-const statusPill   = document.getElementById('status-pill');
-const toggleBtn    = document.getElementById('toggle-btn');
-const reviewBadgeEl = document.getElementById('review-badge');  // [NEW]
+// ── Elements ──────────────────────────────────────────────────────────────────
+const welcomeScreenEl = document.getElementById('welcome-screen');
+const mainEl          = document.getElementById('main');
+const mainError       = document.getElementById('main-error');
+
+const cameraEl      = document.getElementById('camera');
+const statusPill    = document.getElementById('status-pill');
+const toggleBtn     = document.getElementById('toggle-btn');
+const flipBtn       = document.getElementById('flip-btn');
+const reviewBadgeEl = document.getElementById('review-badge');
 
 const narrationItalian = document.getElementById('narration-italian');
 const narrationEnglish = document.getElementById('narration-english');
@@ -390,12 +456,13 @@ let isRunning       = false;
 let loopRunning     = false;
 let showTranslation = false;
 let italianVoice    = null;
+let facingMode      = 'user';  // 'user' (front) or 'environment' (rear)
 
-// [NEW] Session state — all reset on Stop
+// Session state — all reset on Stop
 let vocabSeen      = new Map(); // normalized word → cycle number first seen
 let vocabOriginals = new Map(); // normalized word → original Italian word (for prompts)
 let cycleCount     = 0;
-let performanceScore = 0.5;    // 0–1, clamped
+let performanceScore = 0.15;   // start firmly in A1 tier (< 0.35)
 let currentFocusWord = null;   // set during displayNarration, consumed at end of loop
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -439,7 +506,7 @@ function buildPrompt() {
   // Difficulty tier from performanceScore
   let difficulty;
   if (performanceScore < 0.35) {
-    difficulty = 'A1 only: single noun-verb sentences, present tense, 10 words maximum.';
+    difficulty = 'A1 only: single short sentence, present tense only, maximum 8 words, only the most common everyday vocabulary.';
   } else if (performanceScore <= 0.65) {
     difficulty = 'A1-A2: slightly longer sentences, common adjectives, up to 18 words.';
   } else {
@@ -480,14 +547,27 @@ function loadVoices() {
 
 // ── Camera ────────────────────────────────────────────────────────────────────
 async function startCamera() {
-  // Request audio alongside video so both permission prompts fire within the same
-  // user gesture on mobile. Audio tracks are dropped immediately; the audio stream
-  // is only needed to prime mic permission for SpeechRecognition later.
-  const constraints = hasSR ? { video: true, audio: true } : { video: true, audio: false };
+  const videoConstraints = { facingMode };
+  const constraints = hasSR
+    ? { video: videoConstraints, audio: true }
+    : { video: videoConstraints, audio: false };
   const stream = await navigator.mediaDevices.getUserMedia(constraints);
   stream.getAudioTracks().forEach(t => t.stop());
   cameraEl.srcObject = stream;
+  cameraEl.style.transform = facingMode === 'user' ? 'scaleX(-1)' : 'none';
   await new Promise(r => cameraEl.addEventListener('loadedmetadata', r, { once: true }));
+}
+
+async function flipCamera() {
+  if (cameraEl.srcObject) cameraEl.srcObject.getTracks().forEach(t => t.stop());
+  const prev = facingMode;
+  facingMode = facingMode === 'user' ? 'environment' : 'user';
+  try {
+    await startCamera();
+  } catch {
+    facingMode = prev;
+    await startCamera();
+  }
 }
 
 async function primeMicPermission() {
@@ -500,10 +580,12 @@ function captureFrame() {
   const canvas = document.createElement('canvas');
   canvas.width  = w;
   canvas.height = h;
-  // Un-mirror before sending to Claude
   const ctx = canvas.getContext('2d');
-  ctx.translate(w, 0);
-  ctx.scale(-1, 1);
+  if (facingMode === 'user') {
+    // Un-mirror front camera before sending to Claude
+    ctx.translate(w, 0);
+    ctx.scale(-1, 1);
+  }
   ctx.drawImage(cameraEl, 0, 0, w, h);
   return canvas.toDataURL('image/jpeg', 0.75).split(',')[1];
 }
@@ -572,6 +654,50 @@ function speak(text) {
     utt.onerror = resolve;
     speechSynthesis.speak(utt);
   });
+}
+
+// ── Audio feedback sounds ─────────────────────────────────────────────────────
+function playFeedbackSound(result) {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const now = ctx.currentTime;
+    if (result === 'exact') {
+      // Ascending two-note chime: C5 → E5
+      [523.25, 659.25].forEach((freq, i) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, now + i * 0.18);
+        gain.gain.setValueAtTime(0, now + i * 0.18);
+        gain.gain.linearRampToValueAtTime(0.25, now + i * 0.18 + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.18 + 0.35);
+        osc.start(now + i * 0.18);
+        osc.stop(now + i * 0.18 + 0.4);
+      });
+    } else if (result === 'close') {
+      // Single mid tone: A4
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(440, now);
+      gain.gain.setValueAtTime(0.2, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+      osc.start(now); osc.stop(now + 0.4);
+    } else {
+      // Gentle descending: D4 → A3
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(293.66, now);
+      osc.frequency.exponentialRampToValueAtTime(220, now + 0.3);
+      gain.gain.setValueAtTime(0.18, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.45);
+      osc.start(now); osc.stop(now + 0.5);
+    }
+  } catch { /* degrade gracefully */ }
 }
 
 // ── Speech recognition ────────────────────────────────────────────────────────
@@ -712,6 +838,7 @@ async function speakBackPhase(phrase) {
       const messages = { exact: 'Perfetto! ✓', close: 'Quasi — close enough ✓', off: 'Keep practicing' };
       feedbackLabel.className   = result;
       feedbackLabel.textContent = messages[result];
+      playFeedbackSound(result);
       feedbackHeard.textContent = heard ? `Heard: "${heard}"` : (lastSRError ? `Error: ${lastSRError}` : 'Nothing detected');
 
       // [NEW] Show coaching tip if we got one
@@ -786,11 +913,11 @@ toggleBtn.addEventListener('click', () => {
     toggleBtn.textContent = 'Start';
     toggleBtn.classList.remove('running');
     setStatus('', 'Ready');
-    // [NEW] Reset all session state on Stop
+    // Reset all session state on Stop
     vocabSeen.clear();
     vocabOriginals.clear();
     cycleCount       = 0;
-    performanceScore = 0.5;
+    performanceScore = 0.15;
     currentFocusWord = null;
     reviewBadgeEl.classList.remove('show');
     levelPill.classList.remove('show');
@@ -809,29 +936,72 @@ transToggle.addEventListener('click', () => {
   transToggle.textContent = showTranslation ? 'Hide translation' : 'Show translation';
 });
 
-// ── Setup flow ────────────────────────────────────────────────────────────────
-setupBtn.addEventListener('click', async () => {
-  const key = apiKeyInput.value.trim();
-  if (!key) { showError(setupError, 'Please enter your Anthropic API key.'); return; }
+// ── Init + welcome screen ─────────────────────────────────────────────────────
+// Resolve API key: magic-link hash → localStorage → manual entry
+const hashKey = window.location.hash.slice(1);
+if (hashKey.startsWith('sk-')) {
+  localStorage.setItem('lv_key', hashKey);
+  history.replaceState(null, '', window.location.pathname + window.location.search);
+}
+const savedKey = localStorage.getItem('lv_key');
+if (savedKey) {
+  client = new Anthropic({ apiKey: savedKey, dangerouslyAllowBrowser: true });
+} else {
+  document.getElementById('key-entry').style.display = 'block';
+  document.getElementById('start-btn').textContent = 'Save & Start';
+}
 
-  setupBtn.disabled = true;
-  setupBtn.textContent = 'Setting up…';
-  hideError(setupError);
+const greetings = ['ciao', 'hello', 'bonjour', 'hola', 'olá', 'willkommen', 'こんにちは', '안녕하세요', 'مرحبا', 'привет'];
+let greetIdx = 0;
+const greetingTextEl = document.getElementById('greeting-text');
+const greetInterval = setInterval(() => {
+  greetingTextEl.style.opacity = '0';
+  setTimeout(() => {
+    greetIdx = (greetIdx + 1) % greetings.length;
+    greetingTextEl.textContent = greetings[greetIdx];
+    greetingTextEl.style.opacity = '1';
+  }, 400);
+}, 2500);
 
+document.getElementById('start-btn').addEventListener('click', async () => {
+  const btn = document.getElementById('start-btn');
+  const keyError = document.getElementById('key-error');
+  keyError.classList.remove('show');
+
+  if (!client) {
+    const entered = document.getElementById('key-input').value.trim();
+    if (!entered.startsWith('sk-')) { keyError.classList.add('show'); return; }
+    localStorage.setItem('lv_key', entered);
+    client = new Anthropic({ apiKey: entered, dangerouslyAllowBrowser: true });
+  }
+
+  btn.disabled = true;
+  btn.textContent = 'Starting…';
   try {
-    client = new Anthropic({ apiKey: key, dangerouslyAllowBrowser: true });
     await Promise.all([startCamera(), loadVoices()]);
-    await primeMicPermission(); // prompt for mic on iOS before SpeechRecognition needs it
-    setupEl.style.display = 'none';
+    clearInterval(greetInterval);
+    welcomeScreenEl.style.display = 'none';
     mainEl.classList.add('show');
-  } catch (err) {
-    showError(setupError, 'Could not access camera. Please allow camera permissions and try again.');
-    setupBtn.disabled = false;
-    setupBtn.textContent = 'Begin';
+    flipBtn.classList.add('show');
+  } catch {
+    btn.disabled = false;
+    btn.textContent = savedKey ? 'Start' : 'Save & Start';
+    const existing = document.getElementById('welcome-err');
+    if (!existing) {
+      const errEl = document.createElement('p');
+      errEl.id = 'welcome-err';
+      errEl.style.cssText = 'color:#f87171;font-size:0.85rem;margin-top:0.25rem;';
+      errEl.textContent = 'Could not access camera — please allow permissions and try again.';
+      btn.after(errEl);
+    }
   }
 });
 
-apiKeyInput.addEventListener('keydown', e => { if (e.key === 'Enter') setupBtn.click(); });
+document.getElementById('key-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') document.getElementById('start-btn').click();
+});
+
+flipBtn.addEventListener('click', () => flipCamera());
 </script>
 </body>
 </html>
