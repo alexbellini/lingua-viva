@@ -38,10 +38,10 @@
       letter-spacing: -0.03em;
       color: #6b7df5;
       opacity: 1;
-      transition: opacity 0.4s ease;
+      transition: opacity 0.45s ease;
       min-height: 5rem;
-      display: flex;
-      align-items: center;
+      width: 100%;
+      text-align: center;
     }
 
     #welcome-brand h1 {
@@ -374,7 +374,7 @@
 
 <!-- ── Welcome ── -->
 <div id="welcome-screen">
-  <div id="greeting-text">ciao</div>
+  <div id="greeting-text">hello</div>
   <div id="welcome-brand">
     <h1>Lingua <span>Viva</span></h1>
     <p>Learn Italian through your world.</p>
@@ -951,7 +951,7 @@ if (savedKey) {
   document.getElementById('start-btn').textContent = 'Save & Start';
 }
 
-const greetings = ['ciao', 'hello', 'bonjour', 'hola', 'olá', 'willkommen', 'こんにちは', '안녕하세요', 'مرحبا', 'привет'];
+const greetings = ['hello', 'ciao', 'bonjour', 'hola', 'olá', 'willkommen', 'こんにちは', '안녕하세요', 'مرحبا', 'привет'];
 let greetIdx = 0;
 const greetingTextEl = document.getElementById('greeting-text');
 const greetInterval = setInterval(() => {
@@ -960,7 +960,7 @@ const greetInterval = setInterval(() => {
     greetIdx = (greetIdx + 1) % greetings.length;
     greetingTextEl.textContent = greetings[greetIdx];
     greetingTextEl.style.opacity = '1';
-  }, 400);
+  }, 550); // 550ms > 450ms transition — ensures full fade before text swaps
 }, 2500);
 
 document.getElementById('start-btn').addEventListener('click', async () => {
