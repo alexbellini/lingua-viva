@@ -695,7 +695,7 @@ async function getCoachingTip(targetPhrase, heardTranscript) {
       max_tokens: 80,
       messages: [{
         role: 'user',
-        content: `The learner was asked to say: '${targetPhrase}'. They said: '${heardTranscript}'. Return only valid JSON: {"score": "exact|close|off", "tip": "one short encouraging coaching tip in English under 10 words"}`
+        content: `The learner was asked to say: '${targetPhrase}'. They said: '${heardTranscript}'. Return only valid JSON — the tip MUST be written in English regardless of the phrase language: {"score": "exact|close|off", "tip": "one short encouraging coaching tip in English under 10 words"}`
       }]
     });
 
@@ -815,8 +815,10 @@ async function listenWithFallback() {
   const lang = LANGUAGES[selectedLanguage];
   lastSRError = null;
   let heard = await listenOnce(lang.locale);
-  if (heard === null && !lastSRError) {
-    // Silent failure — language model may not have loaded; retry with base code
+  // 'aborted' = Chrome busy right after prior session; silent null = model not loaded
+  // In both cases, retry with base language code after a short pause
+  if (heard === null && (!lastSRError || lastSRError === 'aborted')) {
+    await delay(300);
     lastSRError = null;
     heard = await listenOnce(lang.langStart);
   }
