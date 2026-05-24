@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Lingua Viva — Italian Immersion</title>
+  <title>Lingua Viva — Language Immersion</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -98,6 +98,63 @@
     }
 
     #key-entry .key-error.show { display: block; }
+
+    /* ── Language ticker ── */
+    #lang-ticker-wrap {
+      display: inline-block;
+      overflow: hidden;
+      height: 1.2em;
+      vertical-align: bottom;
+      line-height: 1.2;
+    }
+
+    #lang-ticker-inner {
+      display: flex;
+      flex-direction: column;
+      line-height: 1.2;
+      animation: lang-scroll 7.5s linear infinite;
+    }
+
+    #lang-ticker-inner span {
+      display: block;
+      height: 1.2em;
+      color: #6b7df5;
+    }
+
+    @keyframes lang-scroll {
+      0%      { transform: translateY(0); }
+      26%     { transform: translateY(0); }
+      33.33%  { transform: translateY(-1.2em); }
+      59.33%  { transform: translateY(-1.2em); }
+      66.66%  { transform: translateY(-2.4em); }
+      92.66%  { transform: translateY(-2.4em); }
+      100%    { transform: translateY(-3.6em); }
+    }
+
+    /* ── Language selector pills ── */
+    #lang-selector {
+      display: flex;
+      gap: 8px;
+      justify-content: center;
+      margin-bottom: 4px;
+    }
+
+    .lang-pill {
+      background: transparent;
+      border: 1px solid #2e2e36;
+      color: #555;
+      font-size: 0.82rem;
+      padding: 4px 14px;
+      border-radius: 20px;
+      font-weight: 500;
+    }
+
+    .lang-pill:hover { border-color: #444; color: #888; }
+
+    .lang-pill.active {
+      border-color: #6b7df5;
+      color: #6b7df5;
+    }
 
     /* ── Shared buttons ── */
     button {
@@ -377,12 +434,17 @@
   <div id="greeting-text">hello</div>
   <div id="welcome-brand">
     <h1>Lingua <span>Viva</span></h1>
-    <p>Learn Italian through your world.</p>
+    <p>Learn <span id="lang-ticker-wrap"><span id="lang-ticker-inner"><span>Italian</span><span>Spanish</span><span>French</span><span>Italian</span></span></span> through your world.</p>
   </div>
   <div id="key-entry">
     <input type="password" id="key-input" placeholder="sk-ant-api03-…" autocomplete="off" spellcheck="false" />
     <p>Saved to this browser — you won't be asked again.</p>
     <p class="key-error" id="key-error">Please enter a valid API key.</p>
+  </div>
+  <div id="lang-selector">
+    <button class="lang-pill active" data-lang="italian">Italian</button>
+    <button class="lang-pill" data-lang="spanish">Spanish</button>
+    <button class="lang-pill" data-lang="french">French</button>
   </div>
   <button class="btn-primary" id="start-btn">Start</button>
 </div>
@@ -450,12 +512,20 @@ const feedbackLabel = document.getElementById('feedback-label');
 const feedbackHeard = document.getElementById('feedback-heard');
 const coachingTip   = document.getElementById('coaching-tip');  // [NEW]
 
+// ── Language config ───────────────────────────────────────────────────────────
+const LANGUAGES = {
+  italian: { name: 'Italian', locale: 'it-IT', langStart: 'it' },
+  spanish: { name: 'Spanish', locale: 'es-ES', langStart: 'es' },
+  french:  { name: 'French',  locale: 'fr-FR', langStart: 'fr' },
+};
+let selectedLanguage = 'italian';
+
 // ── State ─────────────────────────────────────────────────────────────────────
 let client          = null;
 let isRunning       = false;
 let loopRunning     = false;
 let showTranslation = false;
-let italianVoice    = null;
+let targetVoice     = null;
 let facingMode      = 'user';  // 'user' (front) or 'environment' (rear)
 
 // Session state — all reset on Stop
@@ -516,15 +586,16 @@ function buildPrompt() {
   const avoidLine  = avoidWords.length > 0 ? `Avoid these already-seen words: ${avoidWords.join(', ')}.` : '';
   const reviewLine = reviewWord ? `Review moment: naturally work the word "${reviewWord}" into the narration as a callback to something the learner has seen before.` : '';
 
-  const prompt = `You are an Italian language tutor creating an immersion experience.
-Look at this image. Identify the single most visually prominent object or action that is NOT already in the avoid list. Build a short, natural Italian narration centered on that one focus item.
+  const langName = LANGUAGES[selectedLanguage].name;
+  const prompt = `You are a ${langName} language tutor creating an immersion experience.
+Look at this image. Identify the single most visually prominent object or action that is NOT already in the avoid list. Build a short, natural ${langName} narration centered on that one focus item.
 
 Difficulty: ${difficulty}
 ${avoidLine}
 ${reviewLine}
 
 Return ONLY valid JSON with no markdown or code fences:
-{"italian": "...", "english": "...", "focusWord": "the key Italian word the narration centres on", "level": "A1|A2|B1"}`;
+{"narration": "...", "english": "...", "focusWord": "the key ${langName} word the narration centres on", "level": "A1|A2|B1"}`;
 
   return { prompt, isReview: isReview && reviewWord !== null };
 }
@@ -534,9 +605,10 @@ function loadVoices() {
   return new Promise(resolve => {
     const pick = () => {
       const voices = speechSynthesis.getVoices();
-      italianVoice = voices.find(v => v.lang === 'it-IT' && v.localService)
-                  || voices.find(v => v.lang.startsWith('it'))
-                  || null;
+      const lang = LANGUAGES[selectedLanguage];
+      targetVoice = voices.find(v => v.lang === lang.locale && v.localService)
+                 || voices.find(v => v.lang.startsWith(lang.langStart))
+                 || null;
       resolve();
     };
     if (speechSynthesis.getVoices().length > 0) { pick(); return; }
@@ -646,10 +718,10 @@ function speak(text) {
   return new Promise(resolve => {
     speechSynthesis.cancel();
     const utt = new SpeechSynthesisUtterance(text);
-    utt.lang  = 'it-IT';
+    utt.lang  = LANGUAGES[selectedLanguage].locale;
     utt.rate  = 0.82;
     utt.pitch = 1;
-    if (italianVoice) utt.voice = italianVoice;
+    if (targetVoice) utt.voice = targetVoice;
     let done = false;
     const finish = () => { if (!done) { done = true; resolve(); } };
     utt.onend   = finish;
@@ -712,7 +784,7 @@ function listenOnce() {
   return new Promise(resolve => {
     if (!hasSR) { resolve(null); return; }
     const rec = new SR();
-    rec.lang = 'it-IT';
+    rec.lang = LANGUAGES[selectedLanguage].locale;
     rec.interimResults = false;
     rec.maxAlternatives = 3;
     let resolved = false;
@@ -755,7 +827,7 @@ function displayNarration(narration) {
 
   if (focusWord) {
     // Escape the raw text, then wrap the focus word with <mark>
-    const safeText  = escapeHTML(narration.italian);
+    const safeText  = escapeHTML(narration.narration);
     const safeFocus = escapeHTML(focusWord).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const highlighted = safeText.replace(
       new RegExp(`(${safeFocus})`, 'gi'),
@@ -763,7 +835,7 @@ function displayNarration(narration) {
     );
     narrationItalian.innerHTML = highlighted;
   } else {
-    narrationItalian.textContent = narration.italian;
+    narrationItalian.textContent = narration.narration;
   }
 
   narrationEnglish.textContent = narration.english || '';
@@ -884,11 +956,11 @@ async function runLoop() {
     displayNarration(narration);         // [NEW] handles highlight + level pill
 
     setStatus('speaking', 'Speaking…');
-    await speak(narration.italian);
+    await speak(narration.narration);
 
     if (!isRunning) break;
 
-    await speakBackPhase(narration.italian);
+    await speakBackPhase(narration.narration);
 
     if (!isRunning) break;
 
@@ -970,6 +1042,20 @@ const greetInterval = setInterval(() => {
     greetingTextEl.style.opacity = '1';
   }, 550); // 550ms > 450ms transition — ensures full fade before text swaps
 }, 2500);
+
+// ── Language selector ─────────────────────────────────────────────────────────
+const tickerInner = document.getElementById('lang-ticker-inner');
+const tickerOffsets = { italian: 'translateY(0)', spanish: 'translateY(-1.2em)', french: 'translateY(-2.4em)' };
+
+document.querySelectorAll('.lang-pill').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.lang-pill').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    selectedLanguage = btn.dataset.lang;
+    tickerInner.style.animation = 'none';
+    tickerInner.style.transform = tickerOffsets[selectedLanguage];
+  });
+});
 
 document.getElementById('start-btn').addEventListener('click', async () => {
   const btn = document.getElementById('start-btn');
