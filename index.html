@@ -650,9 +650,13 @@ function speak(text) {
     utt.rate  = 0.82;
     utt.pitch = 1;
     if (italianVoice) utt.voice = italianVoice;
-    utt.onend   = resolve;
-    utt.onerror = resolve;
+    let done = false;
+    const finish = () => { if (!done) { done = true; resolve(); } };
+    utt.onend   = finish;
+    utt.onerror = finish;
     speechSynthesis.speak(utt);
+    // iOS: onend sometimes never fires — resolve after generous timeout so the loop isn't stuck
+    setTimeout(finish, 10000);
   });
 }
 
@@ -926,6 +930,10 @@ toggleBtn.addEventListener('click', () => {
     toggleBtn.textContent = 'Stop';
     toggleBtn.classList.add('running');
     hideError(mainError);
+    // iOS requires speechSynthesis.speak() to be called directly within a user gesture
+    // to unlock audio — do it here before the loop goes async
+    speechSynthesis.cancel();
+    speechSynthesis.speak(new SpeechSynthesisUtterance(''));
     if (!loopRunning) runLoop();
   }
 });
