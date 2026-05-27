@@ -392,6 +392,17 @@
     #speak-btn:hover:not(:disabled) { background: #26262f; border-color: #4a4a58; }
     #speak-btn.listening { border-color: #ef4444; color: #ef4444; }
 
+    #hear-again-btn {
+      background: transparent;
+      border: 1px solid #2e2e3a;
+      color: #666;
+      font-size: 0.78rem;
+      padding: 0.35rem 0.85rem;
+      margin-bottom: 0.65rem;
+    }
+    #hear-again-btn:hover:not(:disabled) { border-color: #44445a; color: #999; }
+    #hear-again-btn:disabled { opacity: 0.35; cursor: default; }
+
     #feedback-row {
       margin-top: 0.75rem;
       display: none;
@@ -472,6 +483,7 @@
   <div id="speak-back">
     <div id="speak-label">Repeat after me</div>
     <p id="speak-phrase"></p>
+    <button id="hear-again-btn">🔊 Hear again</button>
     <button id="speak-btn">🎤 Tap to speak</button>
     <div id="feedback-row">
       <div id="feedback-label"></div>
@@ -884,8 +896,17 @@ async function speakBackPhase(phrase) {
   speakBtn.textContent = '🎤 Tap to speak';
   speakBackEl.classList.add('show');
 
+  const hearAgainBtn = document.getElementById('hear-again-btn');
+  hearAgainBtn.disabled = false;
+
   if (!hasSR) {
+    hearAgainBtn.onclick = async () => {
+      hearAgainBtn.disabled = true;
+      await speak(phrase);
+      hearAgainBtn.disabled = false;
+    };
     await delay(8000);
+    hearAgainBtn.onclick = null;
     speakBackEl.classList.remove('show');
     return;
   }
@@ -897,11 +918,25 @@ async function speakBackPhase(phrase) {
       done = true;
       clearTimeout(autoSkip);
       speakBtn.onclick = null;
+      hearAgainBtn.onclick = null;
+      hearAgainBtn.disabled = true;
       speakBackEl.classList.remove('show');
       resolve();
     };
 
-    const autoSkip = setTimeout(finish, 11000);
+    let autoSkip = setTimeout(finish, 11000);
+    const resetAutoSkip = () => {
+      clearTimeout(autoSkip);
+      autoSkip = setTimeout(finish, 11000);
+    };
+
+    hearAgainBtn.onclick = async () => {
+      if (done) return;
+      hearAgainBtn.disabled = true;
+      resetAutoSkip();
+      await speak(phrase);
+      if (!done) hearAgainBtn.disabled = false;
+    };
 
     speakBtn.onclick = async () => {
       if (done) return;
