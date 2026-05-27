@@ -394,14 +394,14 @@
 
     #hear-again-btn {
       background: transparent;
-      border: 1px solid #2e2e3a;
+      border: 1px solid #2e2e36;
       color: #666;
       font-size: 0.78rem;
-      padding: 0.35rem 0.85rem;
-      margin-bottom: 0.65rem;
+      padding: 3px 10px;
+      margin-left: 0.4rem;
     }
-    #hear-again-btn:hover:not(:disabled) { border-color: #44445a; color: #999; }
-    #hear-again-btn:disabled { opacity: 0.35; cursor: default; }
+    #hear-again-btn:hover:not(:disabled) { border-color: #444; color: #999; }
+    #hear-again-btn:disabled { opacity: 0.3; cursor: default; }
 
     #feedback-row {
       margin-top: 0.75rem;
@@ -478,12 +478,12 @@
     <p id="narration-italian" class="placeholder">Narration will appear here…</p>
     <p id="narration-english"></p>
     <button id="trans-toggle">Show translation</button>
+    <button id="hear-again-btn" disabled>🔊 Hear again</button>
   </div>
 
   <div id="speak-back">
     <div id="speak-label">Repeat after me</div>
     <p id="speak-phrase"></p>
-    <button id="hear-again-btn">🔊 Hear again</button>
     <button id="speak-btn">🎤 Tap to speak</button>
     <div id="feedback-row">
       <div id="feedback-label"></div>
@@ -516,6 +516,7 @@ const narrationEnglish = document.getElementById('narration-english');
 const transToggle      = document.getElementById('trans-toggle');
 const levelPill        = document.getElementById('level-pill');  // [NEW]
 
+const hearAgainBtn  = document.getElementById('hear-again-btn');
 const speakBackEl   = document.getElementById('speak-back');
 const speakPhrase   = document.getElementById('speak-phrase');
 const speakBtn      = document.getElementById('speak-btn');
@@ -546,6 +547,8 @@ let vocabOriginals = new Map(); // normalized word → original Italian word (fo
 let cycleCount     = 0;
 let performanceScore = 0.15;   // start firmly in A1 tier (< 0.35)
 let currentFocusWord = null;   // set during displayNarration, consumed at end of loop
+let currentNarration = '';     // last narration text, used by Hear Again button
+let onHearAgain      = null;   // callback set by speakBackPhase to reset its auto-skip timer
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function setStatus(cls, text) {
@@ -896,17 +899,8 @@ async function speakBackPhase(phrase) {
   speakBtn.textContent = '🎤 Tap to speak';
   speakBackEl.classList.add('show');
 
-  const hearAgainBtn = document.getElementById('hear-again-btn');
-  hearAgainBtn.disabled = false;
-
   if (!hasSR) {
-    hearAgainBtn.onclick = async () => {
-      hearAgainBtn.disabled = true;
-      await speak(phrase);
-      hearAgainBtn.disabled = false;
-    };
     await delay(8000);
-    hearAgainBtn.onclick = null;
     speakBackEl.classList.remove('show');
     return;
   }
@@ -917,25 +911,16 @@ async function speakBackPhase(phrase) {
       if (done) return;
       done = true;
       clearTimeout(autoSkip);
+      onHearAgain = null;
       speakBtn.onclick = null;
-      hearAgainBtn.onclick = null;
-      hearAgainBtn.disabled = true;
       speakBackEl.classList.remove('show');
       resolve();
     };
 
     let autoSkip = setTimeout(finish, 11000);
-    const resetAutoSkip = () => {
+    onHearAgain = () => {
       clearTimeout(autoSkip);
       autoSkip = setTimeout(finish, 11000);
-    };
-
-    hearAgainBtn.onclick = async () => {
-      if (done) return;
-      hearAgainBtn.disabled = true;
-      resetAutoSkip();
-      await speak(phrase);
-      if (!done) hearAgainBtn.disabled = false;
     };
 
     speakBtn.onclick = async () => {
@@ -1013,6 +998,8 @@ async function runLoop() {
 
     displayNarration(narration);         // [NEW] handles highlight + level pill
 
+    currentNarration = narration.narration;
+    hearAgainBtn.disabled = false;
     setStatus('speaking', 'Speaking…');
     await speak(narration.narration);
 
@@ -1053,6 +1040,8 @@ toggleBtn.addEventListener('click', () => {
     cycleCount       = 0;
     performanceScore = 0.15;
     currentFocusWord = null;
+    currentNarration = '';
+    hearAgainBtn.disabled = true;
     reviewBadgeEl.classList.remove('show');
     levelPill.classList.remove('show');
   } else {
@@ -1072,6 +1061,14 @@ transToggle.addEventListener('click', () => {
   showTranslation = !showTranslation;
   narrationEnglish.classList.toggle('show', showTranslation);
   transToggle.textContent = showTranslation ? 'Hide translation' : 'Show translation';
+});
+
+hearAgainBtn.addEventListener('click', async () => {
+  if (!currentNarration) return;
+  if (onHearAgain) onHearAgain();
+  hearAgainBtn.disabled = true;
+  await speak(currentNarration);
+  hearAgainBtn.disabled = false;
 });
 
 // ── Init + welcome screen ─────────────────────────────────────────────────────
