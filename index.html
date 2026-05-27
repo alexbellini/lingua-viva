@@ -588,14 +588,18 @@ function buildPrompt() {
     if (oldest) reviewWord = vocabOriginals.get(oldest[0]) || oldest[0];
   }
 
-  // Difficulty tier from performanceScore
+  // Difficulty tier from performanceScore (5 gradual steps)
   let difficulty;
-  if (performanceScore < 0.35) {
-    difficulty = 'A1 only: single short sentence, present tense only, maximum 8 words, only the most common everyday vocabulary.';
-  } else if (performanceScore <= 0.65) {
-    difficulty = 'A1-A2: slightly longer sentences, common adjectives, up to 18 words.';
+  if (performanceScore < 0.20) {
+    difficulty = 'A1 strict: one sentence, present tense only, maximum 7 words, only the most common everyday nouns and verbs.';
+  } else if (performanceScore < 0.38) {
+    difficulty = 'A1: one sentence, present tense, up to 10 words, common vocabulary, one simple adjective allowed.';
+  } else if (performanceScore < 0.55) {
+    difficulty = 'A1-A2: one or two short sentences, present tense, up to 13 words, common adjectives and descriptions.';
+  } else if (performanceScore < 0.73) {
+    difficulty = 'A2: two short sentences, adjectives, present and near-future tense, up to 17 words.';
   } else {
-    difficulty = 'A2-B1: compound sentences, introduce past tense occasionally, up to 25 words.';
+    difficulty = 'B1: compound sentences, past tense occasionally, richer descriptive vocabulary, up to 23 words.';
   }
 
   const avoidLine  = avoidWords.length > 0 ? `Avoid these already-seen words: ${avoidWords.join(', ')}.` : '';
@@ -929,6 +933,7 @@ async function speakBackPhase(phrase) {
       speakBtn.disabled = true;
       speakBtn.classList.add('listening');
       speakBtn.textContent = '🔴 Listening…';
+      speechSynthesis.cancel();
 
       const heard = await listenWithFallback();
 
@@ -1067,8 +1072,10 @@ hearAgainBtn.addEventListener('click', async () => {
   if (!currentNarration) return;
   if (onHearAgain) onHearAgain();
   hearAgainBtn.disabled = true;
+  speakBtn.disabled = true;
   await speak(currentNarration);
   hearAgainBtn.disabled = false;
+  speakBtn.disabled = false;
 });
 
 // ── Init + welcome screen ─────────────────────────────────────────────────────
