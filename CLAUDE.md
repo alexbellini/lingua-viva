@@ -24,11 +24,19 @@ GitHub repo: https://github.com/alexbellini/lingua-viva
 ## Features implemented
 - **Vocab memory**: `vocabSeen` Map tracks words seen this session; Claude avoids repeating them
 - **Spaced repetition**: every 5 cycles, oldest vocab word is surfaced as a review moment (🔁 badge shown)
-- **Difficulty adaptation**: `performanceScore` (0–1, starts at 0.5) adjusts Claude's difficulty tier (A1 / A1-A2 / A2-B1) based on speak-back results
+- **Difficulty adaptation**: `performanceScore` (0–1, starts at 0.15) drives 5 gradual tiers:
+  - `< 0.20` A1 strict — 1 sentence, present tense, max 7 words
+  - `< 0.38` A1 — 1 sentence, present tense, max 10 words
+  - `< 0.55` A1-A2 — 1–2 sentences, present tense, max 13 words
+  - `< 0.73` A2 — 2 sentences, present/near-future, max 17 words
+  - `≥ 0.73` B1 — compound sentences, past tense, max 23 words
+  - Score: exact +0.10, close +0.03, off −0.10
 - **Focus word highlighting**: Claude picks one prominent object per scene; that word is wrapped in `<mark>` (muted purple) in the UI
 - **Pronunciation coaching**: after each speak-back attempt, a second lightweight Claude call (no image, max_tokens 80) scores the attempt and returns a short tip
 - **Translation toggle**: show/hide English translation under the Italian narration
-- **CEFR level pill**: small badge top-right of narration box showing current level (A1/A2/B1)
+- **CEFR level pill**: small badge top-right of narration box showing current level (A1/A2/B1) — Claude-determined, not tied directly to performanceScore tier
+- **Hear Again button**: replays the narration TTS; lives in the narration box (not the speak-back box); disables the mic button during replay to prevent SR/TTS overlap
+- **Speak-back phrase**: trailing punctuation (`.?!`) stripped before display and before passing to coaching/comparison — users speak words, not punctuation
 - All session state resets on Stop
 
 ## Code conventions
@@ -52,7 +60,11 @@ CLAUDE.md does not auto-load in the Desktop app Code tab. Start each new session
 > "read CLAUDE.md — then [your request]"
 
 ## Known constraints
-- `SpeechRecognition` is Chrome/Edge only — degrades gracefully on other browsers (speak-back phase auto-skips)
+- `SpeechRecognition` works on Chrome, Edge, and macOS Safari; degrades gracefully elsewhere (speak-back auto-skips)
+  - Safari requires `continuous = false` — with `continuous = true`, Safari collects speech but never auto-fires `onresult`, causing SR to hang until timeout
+  - SR timeout is 12s (not 8s) — A2 phrases take ~7s to say; Safari needs ~0.5–1s processing time after speech ends before firing `onresult`; the old 8s timeout raced and won
+  - `speechSynthesis.cancel()` is called before SR starts to clear any lingering audio session
 - Italian TTS quality varies by OS (macOS has Alice, Windows has Elsa)
 - Camera is mirrored in the UI for selfie feel; frame is un-mirrored before sending to Claude
-- API key is entered by the user on every load — intentionally not persisted anywhere
+- API key is stored in localStorage after first entry — intentionally simple for personal/beta use
+- `getNarration` uses regex (`/\{[\s\S]*\}/`) to extract JSON from Claude's response rather than bare `JSON.parse`, so stray preamble doesn't crash the loop
