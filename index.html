@@ -806,7 +806,7 @@ function listenOnce(locale) {
     if (!hasSR) { resolve(null); return; }
     const rec = new SR();
     rec.lang = locale;
-    rec.continuous = true;
+    rec.continuous = false;
     rec.interimResults = false;
     rec.maxAlternatives = 3;
     let resolved = false;
@@ -819,12 +819,18 @@ function listenOnce(locale) {
         resolve(v);
       }
     };
-    // Stop immediately on result so iOS doesn't hang waiting for silence detection
-    rec.onresult = e => { const t = Array.from(e.results[0]).map(r => r.transcript)[0] || null; try { rec.stop(); } catch {} done(t); };
+    // Use .find() across alternatives so a leading empty alternative doesn't
+    // produce null when a later alternative has content.
+    rec.onresult = e => {
+      const t = Array.from(e.results[0]).map(r => r.transcript).find(s => s && s.trim()) || null;
+      try { rec.stop(); } catch {}
+      done(t);
+    };
     rec.onerror  = e => { pendingError = e.error; lastSRError = e.error; done(null); };
     rec.onend    = () => done(null);
-    // Hard 8s timeout in case iOS never fires onresult or onend
-    const timeout = setTimeout(() => { try { rec.stop(); } catch {} done(null); }, 8000);
+    // 12s timeout — gives Safari enough headroom after a 7s A2 phrase to
+    // finish processing and fire onresult before the timer races it.
+    const timeout = setTimeout(() => { try { rec.stop(); } catch {} done(null); }, 12000);
     const cleanup = () => clearTimeout(timeout);
     rec.addEventListener('end', cleanup, { once: true });
     try { rec.start(); } catch { cleanup(); done(null); }
