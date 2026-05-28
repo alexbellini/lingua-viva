@@ -703,7 +703,9 @@ async function getNarration(base64Image) {
     .replace(/\n?```$/, '')
     .trim();
 
-  return JSON.parse(raw);
+  const jsonMatch = raw.match(/\{[\s\S]*\}/);
+  if (!jsonMatch) throw new Error('No JSON object in response');
+  return JSON.parse(jsonMatch[0]);
 }
 
 // ── [NEW] Claude API — pronunciation coaching (no image, lightweight) ─────────
@@ -804,6 +806,7 @@ function listenOnce(locale) {
     if (!hasSR) { resolve(null); return; }
     const rec = new SR();
     rec.lang = locale;
+    rec.continuous = true;
     rec.interimResults = false;
     rec.maxAlternatives = 3;
     let resolved = false;
@@ -891,6 +894,7 @@ function displayNarration(narration) {
 
 // ── Speak-back phase ──────────────────────────────────────────────────────────
 async function speakBackPhase(phrase) {
+  phrase = phrase.replace(/[.?!]+$/, '').trim();
   speakPhrase.textContent = phrase;
   feedbackRow.classList.remove('show');
   feedbackLabel.className = '';
@@ -1003,7 +1007,7 @@ async function runLoop() {
 
     displayNarration(narration);         // [NEW] handles highlight + level pill
 
-    currentNarration = narration.narration;
+    currentNarration = narration.narration.replace(/[.?!]+$/, '').trim();
     hearAgainBtn.disabled = false;
     setStatus('speaking', 'Speaking…');
     await speak(narration.narration);
