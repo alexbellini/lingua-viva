@@ -1,0 +1,16 @@
+name = "lingua-viva-worker"
+main = "index.js"
+compatibility_date = "2024-01-01"
+
+# Local dev: wrangler dev --port 8787
+# Deploy:    wrangler deploy
+
+[vars]
+SUPABASE_URL = ""         # fill in after Supabase project is created
+SUPABASE_ANON_KEY = ""    # fill in after Supabase project is created
+
+# Secrets (set via: wrangler secret put SECRET_NAME)
+# ANTHROPIC_API_KEY
+# SUPABASE_SERVICE_ROLE_KEY
+# STRIPE_SECRET_KEY
+# STRIPE_WEBHOOK_SECRET
