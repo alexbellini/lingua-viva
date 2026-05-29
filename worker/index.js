@@ -77,8 +77,9 @@ async function handleNarrate(request, env) {
     return corsResponse(jsonResponse({ error: "Anthropic error", detail: err }, 502));
   }
 
-  // Increment usage (fire-and-forget — don't block the response)
-  incrementUsage(identity, userId, env).catch(console.error);
+  // Increment usage before returning — must be awaited so Cloudflare doesn't
+  // terminate the Worker before the Supabase write completes
+  await incrementUsage(identity, userId, env).catch(console.error);
 
   const data = await anthropicResponse.json();
   return corsResponse(jsonResponse(data));

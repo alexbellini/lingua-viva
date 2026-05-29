@@ -768,7 +768,7 @@ const usageUsedEl    = document.getElementById('usage-used');
 const softNudgeEl    = document.getElementById('soft-nudge');
 
 function updateUsageUI(count) {
-  usageUsedEl.textContent = count;
+  usageUsedEl.textContent = Math.min(count, DAILY_LIMIT);
   usageCounterEl.classList.toggle('show', isRunning);
   if (!nudgeDismissed && count >= NUDGE_AT && count < DAILY_LIMIT) {
     softNudgeEl.classList.add('show');
