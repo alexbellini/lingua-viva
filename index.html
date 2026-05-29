@@ -63,13 +63,92 @@
       margin-top: 0.5rem;
     }
 
-    #key-entry {
-      width: 100%;
-      max-width: 300px;
+    /* ── Usage counter ── */
+    #usage-counter {
+      font-size: 0.75rem;
+      color: #3a3a46;
+      text-align: center;
       display: none;
     }
+    #usage-counter.show { display: block; }
+    #usage-counter .usage-num { color: #6b7df5; }
 
-    #key-entry input {
+    /* ── Soft nudge ── */
+    #soft-nudge {
+      background: #16161a;
+      border: 1px solid #25252d;
+      border-radius: 10px;
+      padding: 0.65rem 1rem;
+      font-size: 0.82rem;
+      color: #777;
+      display: none;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+    }
+    #soft-nudge.show { display: flex; }
+    #nudge-signup-btn {
+      background: transparent;
+      border: 1px solid rgba(107,125,245,0.4);
+      color: #6b7df5;
+      font-size: 0.78rem;
+      padding: 3px 12px;
+      border-radius: 6px;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    #nudge-signup-btn:hover { border-color: #6b7df5; }
+    #nudge-dismiss-btn {
+      background: transparent;
+      border: none;
+      color: #3a3a46;
+      font-size: 1rem;
+      padding: 0 2px;
+      line-height: 1;
+      flex-shrink: 0;
+    }
+    #nudge-dismiss-btn:hover { color: #666; }
+
+    /* ── Modals ── */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.78);
+      backdrop-filter: blur(4px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 200;
+      padding: 1.5rem;
+    }
+    .modal-overlay.show { display: flex; }
+
+    .modal-box {
+      background: #16161a;
+      border: 1px solid #2e2e36;
+      border-radius: 16px;
+      padding: 2rem;
+      width: 100%;
+      max-width: 360px;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      gap: 0.9rem;
+    }
+    .modal-box h2 { font-size: 1.15rem; font-weight: 600; }
+    .modal-box p  { font-size: 0.87rem; color: #666; line-height: 1.55; }
+    .modal-divider { font-size: 0.75rem; color: #2e2e36; }
+    .modal-box .btn-primary { margin: 0; }
+    .modal-box .btn-secondary {
+      background: transparent;
+      border: 1px solid #2e2e36;
+      color: #777;
+      width: 100%;
+      font-size: 0.9rem;
+      padding: 0.7rem 1.4rem;
+    }
+    .modal-box .btn-secondary:hover { border-color: #444; color: #aaa; }
+    .modal-box input[type="email"] {
       width: 100%;
       padding: 0.7rem 1rem;
       background: #18181c;
@@ -81,23 +160,30 @@
       outline: none;
       transition: border-color 0.15s;
     }
+    .modal-box input[type="email"]:focus { border-color: #6b7df5; }
+    .modal-msg { font-size: 0.83rem; min-height: 1.2em; }
+    .modal-msg.success { color: #4ade80; }
+    .modal-msg.error   { color: #f87171; }
 
-    #key-entry input:focus { border-color: #6b7df5; }
-
-    #key-entry p {
-      font-size: 0.75rem;
-      color: #3a3a4a;
-      margin-top: 0.4rem;
+    /* ── Toast ── */
+    #toast {
+      position: fixed;
+      bottom: 1.5rem;
+      left: 50%;
+      transform: translateX(-50%) translateY(4px);
+      background: #1e1e28;
+      border: 1px solid #2e2e3e;
+      border-radius: 20px;
+      padding: 0.5rem 1.2rem;
+      font-size: 0.82rem;
+      color: #a0a0b8;
+      opacity: 0;
+      transition: opacity 0.25s, transform 0.25s;
+      pointer-events: none;
+      z-index: 300;
+      white-space: nowrap;
     }
-
-    #key-entry .key-error {
-      color: #f87171;
-      font-size: 0.78rem;
-      margin-top: 0.35rem;
-      display: none;
-    }
-
-    #key-entry .key-error.show { display: block; }
+    #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
     /* ── Language ticker ── */
     #lang-ticker-wrap {
@@ -447,11 +533,6 @@
     <h1>Lingua <span>Viva</span></h1>
     <p>Learn <span id="lang-ticker-wrap"><span id="lang-ticker-inner"><span>Italian</span><span>Spanish</span><span>French</span><span>Italian</span></span></span> through your world.</p>
   </div>
-  <div id="key-entry">
-    <input type="password" id="key-input" placeholder="sk-ant-api03-…" autocomplete="off" spellcheck="false" />
-    <p>Saved to this browser — you won't be asked again.</p>
-    <p class="key-error" id="key-error">Please enter a valid API key.</p>
-  </div>
   <div id="lang-selector">
     <button class="lang-pill active" data-lang="italian">Italian</button>
     <button class="lang-pill" data-lang="spanish">Spanish</button>
@@ -471,6 +552,16 @@
   </div>
 
   <button id="toggle-btn">Start</button>
+
+  <div id="usage-counter">
+    <span class="usage-num" id="usage-used">0</span> / 15 narrations today
+  </div>
+
+  <div id="soft-nudge">
+    <span>Sign up to save your progress 💾</span>
+    <button id="nudge-signup-btn">Sign up free</button>
+    <button id="nudge-dismiss-btn" title="Dismiss">×</button>
+  </div>
 
   <div id="narration-box">
     <!-- [NEW] CEFR level pill -->
@@ -496,9 +587,130 @@
   <div class="error" id="main-error"></div>
 </div>
 
-<script type="module">
-import Anthropic from 'https://esm.sh/@anthropic-ai/sdk@0.52.0';
+<!-- ── Limit wall modal ── -->
+<div class="modal-overlay" id="limit-modal">
+  <div class="modal-box">
+    <h2>You've used your 15 free narrations today 🎉</h2>
+    <p>Come back tomorrow for more, or sign up free to save your vocab and progress — or go unlimited with Pro.</p>
+    <button class="btn-primary" id="wall-signup-btn">Create free account</button>
+    <div class="modal-divider">— or —</div>
+    <button class="btn-primary" id="wall-upgrade-btn" style="background:#4f46e5">Upgrade to Pro — unlimited</button>
+    <button class="btn-secondary" id="wall-close-btn">Maybe later</button>
+  </div>
+</div>
 
+<!-- ── Sign-in modal ── -->
+<div class="modal-overlay" id="signin-modal">
+  <div class="modal-box">
+    <h2>Sign in to Lingua Viva</h2>
+    <p>Enter your email and we'll send you a magic link — no password needed.</p>
+    <input type="email" id="signin-email" placeholder="you@example.com" autocomplete="email" />
+    <button class="btn-primary" id="signin-send-btn">Send magic link</button>
+    <div class="modal-msg" id="signin-msg"></div>
+    <button class="btn-secondary" id="signin-close-btn">Cancel</button>
+  </div>
+</div>
+
+<!-- ── Toast ── -->
+<div id="toast"></div>
+
+<script type="module">
+
+
+// ── Config ────────────────────────────────────────────────────────────────────
+const WORKER_URL        = 'https://lingua-viva-worker.abellini09.workers.dev';
+const SUPABASE_URL      = 'https://frknnrtowdsbmkbwanjz.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZya25ucnRvd2RzYm1rYndhbmp6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAwMTU0OTksImV4cCI6MjA5NTU5MTQ5OX0.sfnJikOcXDAhI_uABr4bi93C6qKlDA2x1q4RX9Cyjqc';
+const STRIPE_PAYMENT_LINK = ''; // TODO: paste your Stripe Payment Link URL here (Stripe → Payment Links → Create)
+const DAILY_LIMIT       = 15;
+const NUDGE_AT          = 12;
+
+// ── Anonymous session ID ───────────────────────────────────────────────────────
+function getOrCreateAnonId() {
+  let id = localStorage.getItem('lv_session_id');
+  if (!id) {
+    id = crypto.randomUUID();
+    localStorage.setItem('lv_session_id', id);
+  }
+  return id;
+}
+
+// ── Local usage tracking ───────────────────────────────────────────────────────
+function getTodayUsage() {
+  try {
+    const stored = JSON.parse(localStorage.getItem('lv_usage') || '{}');
+    const today  = new Date().toISOString().slice(0, 10);
+    if (stored.date === today) return stored.count ?? 0;
+  } catch {}
+  return 0;
+}
+
+function incrementLocalUsage() {
+  const today = new Date().toISOString().slice(0, 10);
+  const count = getTodayUsage() + 1;
+  localStorage.setItem('lv_usage', JSON.stringify({ date: today, count }));
+  return count;
+}
+
+// ── Supabase (lazy-loaded) ─────────────────────────────────────────────────────
+let _supabase = null;
+async function initSupabase() {
+  if (_supabase) return _supabase;
+  const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2');
+  _supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  return _supabase;
+}
+
+async function getJWT() {
+  if (!_supabase) return null;
+  const { data } = await _supabase.auth.getSession();
+  return data?.session?.access_token ?? null;
+}
+
+async function signInWithEmail(email) {
+  const sb = await initSupabase();
+  const { error } = await sb.auth.signInWithOtp({
+    email,
+    options: { emailRedirectTo: window.location.origin + window.location.pathname },
+  });
+  return error;
+}
+
+async function claimSession(anonId, jwt) {
+  try {
+    await fetch(`${WORKER_URL}/api/claim-session`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${jwt}` },
+      body: JSON.stringify({ anonId }),
+    });
+  } catch {}
+}
+
+// ── Worker API calls ───────────────────────────────────────────────────────────
+async function callWorker(endpoint, body) {
+  const anonId = getOrCreateAnonId();
+  const jwt    = await getJWT();
+  const res = await fetch(`${WORKER_URL}${endpoint}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Session-ID':  anonId,
+      ...(jwt ? { 'Authorization': `Bearer ${jwt}` } : {}),
+    },
+    body: JSON.stringify(body),
+  });
+  if (res.status === 402) {
+    showLimitWall();
+    const err = new Error('daily_limit_reached');
+    err.isLimitError = true;
+    throw err;
+  }
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new Error(`Worker error ${res.status}: ${text}`);
+  }
+  return res.json();
+}
 
 // ── Elements ──────────────────────────────────────────────────────────────────
 const welcomeScreenEl = document.getElementById('welcome-screen');
@@ -534,7 +746,6 @@ const LANGUAGES = {
 let selectedLanguage = 'italian';
 
 // ── State ─────────────────────────────────────────────────────────────────────
-let client          = null;
 let isRunning       = false;
 let loopRunning     = false;
 let showTranslation = false;
@@ -549,6 +760,20 @@ let performanceScore = 0.15;   // start firmly in A1 tier (< 0.35)
 let currentFocusWord = null;   // set during displayNarration, consumed at end of loop
 let currentNarration = '';     // last narration text, used by Hear Again button
 let onHearAgain      = null;   // callback set by speakBackPhase to reset its auto-skip timer
+let nudgeDismissed   = false;  // soft nudge dismissed this session
+
+// ── Usage counter UI ───────────────────────────────────────────────────────────
+const usageCounterEl = document.getElementById('usage-counter');
+const usageUsedEl    = document.getElementById('usage-used');
+const softNudgeEl    = document.getElementById('soft-nudge');
+
+function updateUsageUI(count) {
+  usageUsedEl.textContent = count;
+  usageCounterEl.classList.toggle('show', isRunning);
+  if (!nudgeDismissed && count >= NUDGE_AT && count < DAILY_LIMIT) {
+    softNudgeEl.classList.add('show');
+  }
+}
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function setStatus(cls, text) {
@@ -681,12 +906,12 @@ function captureFrame() {
   return canvas.toDataURL('image/jpeg', 0.75).split(',')[1];
 }
 
-// ── Claude API — narration ────────────────────────────────────────────────────
+// ── Claude API — narration (via Worker) ──────────────────────────────────────
 async function getNarration(base64Image) {
   const { prompt, isReview } = buildPrompt();
   reviewBadgeEl.classList.toggle('show', isReview);
 
-  const msg = await client.messages.create({
+  const data = await callWorker('/api/narrate', {
     model: 'claude-sonnet-4-6',
     max_tokens: 200,
     messages: [{
@@ -698,7 +923,11 @@ async function getNarration(base64Image) {
     }]
   });
 
-  const raw = msg.content[0].text.trim()
+  // Increment local usage counter and update UI
+  const newCount = incrementLocalUsage();
+  updateUsageUI(newCount);
+
+  const raw = data.content[0].text.trim()
     .replace(/^```(?:json)?\n?/, '')
     .replace(/\n?```$/, '')
     .trim();
@@ -708,10 +937,10 @@ async function getNarration(base64Image) {
   return JSON.parse(jsonMatch[0]);
 }
 
-// ── [NEW] Claude API — pronunciation coaching (no image, lightweight) ─────────
+// ── Claude API — pronunciation coaching (via Worker, no image) ───────────────
 async function getCoachingTip(targetPhrase, heardTranscript) {
   try {
-    const msg = await client.messages.create({
+    const data = await callWorker('/api/coach', {
       model: 'claude-sonnet-4-6',
       max_tokens: 80,
       messages: [{
@@ -720,17 +949,17 @@ async function getCoachingTip(targetPhrase, heardTranscript) {
       }]
     });
 
-    const raw = msg.content[0].text.trim()
+    const raw = data.content[0].text.trim()
       .replace(/^```(?:json)?\n?/, '')
       .replace(/\n?```$/, '')
       .trim();
 
     const parsed = JSON.parse(raw);
-    // Validate score field to avoid bad data poisoning state
     if (!['exact', 'close', 'off'].includes(parsed.score)) return null;
     return parsed;
-  } catch {
-    return null; // degrade gracefully — caller falls back to compareSpoken
+  } catch (err) {
+    if (err.isLimitError) throw err; // propagate limit errors up
+    return null; // degrade gracefully for other errors
   }
 }
 
@@ -999,6 +1228,14 @@ async function runLoop() {
     try {
       narration = await getNarration(captureFrame());
     } catch (err) {
+      if (err.isLimitError) {
+        // Limit wall is already shown by callWorker — just stop the loop cleanly
+        isRunning = false;
+        toggleBtn.textContent = 'Start';
+        toggleBtn.classList.remove('running');
+        setStatus('', 'Ready');
+        break;
+      }
       console.error('API error:', err);
       cycleCount--;                      // don't count failed cycles
       showError(mainError, `API error: ${err.message || 'Unknown — check console'}`);
@@ -1059,6 +1296,8 @@ toggleBtn.addEventListener('click', () => {
     hearAgainBtn.disabled = true;
     reviewBadgeEl.classList.remove('show');
     levelPill.classList.remove('show');
+    usageCounterEl.classList.remove('show');
+    softNudgeEl.classList.remove('show');
   } else {
     isRunning = true;
     toggleBtn.textContent = 'Stop';
@@ -1088,20 +1327,26 @@ hearAgainBtn.addEventListener('click', async () => {
   speakBtn.disabled = false;
 });
 
-// ── Init + welcome screen ─────────────────────────────────────────────────────
-// Resolve API key: magic-link hash → localStorage → manual entry
-const hashKey = window.location.hash.slice(1);
-if (hashKey.startsWith('sk-')) {
-  localStorage.setItem('lv_key', hashKey);
-  history.replaceState(null, '', window.location.pathname + window.location.search);
-}
-const savedKey = localStorage.getItem('lv_key');
-if (savedKey) {
-  client = new Anthropic({ apiKey: savedKey, dangerouslyAllowBrowser: true });
-} else {
-  document.getElementById('key-entry').style.display = 'block';
-  document.getElementById('start-btn').textContent = 'Save & Start';
-}
+// ── Init ──────────────────────────────────────────────────────────────────────
+// Ensure anon UUID exists on first load
+getOrCreateAnonId();
+
+// Handle Supabase magic link callback (user returning from email sign-in link)
+(async () => {
+  const hash   = window.location.hash;
+  const search = window.location.search;
+  if (hash.includes('access_token') || search.includes('code=')) {
+    try {
+      const sb = await initSupabase();
+      const { data: { session } } = await sb.auth.getSession();
+      if (session) {
+        await claimSession(getOrCreateAnonId(), session.access_token);
+        history.replaceState(null, '', window.location.pathname);
+        showToast(`Signed in as ${session.user.email}`);
+      }
+    } catch {}
+  }
+})();
 
 const greetings = ['hello', 'ciao', 'bonjour', 'hola', 'olá', 'willkommen', 'こんにちは', '안녕하세요', 'مرحبا', 'привет'];
 let greetIdx = 0;
@@ -1131,16 +1376,6 @@ document.querySelectorAll('.lang-pill').forEach(btn => {
 
 document.getElementById('start-btn').addEventListener('click', async () => {
   const btn = document.getElementById('start-btn');
-  const keyError = document.getElementById('key-error');
-  keyError.classList.remove('show');
-
-  if (!client) {
-    const entered = document.getElementById('key-input').value.trim();
-    if (!entered.startsWith('sk-')) { keyError.classList.add('show'); return; }
-    localStorage.setItem('lv_key', entered);
-    client = new Anthropic({ apiKey: entered, dangerouslyAllowBrowser: true });
-  }
-
   btn.disabled = true;
   btn.textContent = 'Starting…';
   try {
@@ -1149,9 +1384,11 @@ document.getElementById('start-btn').addEventListener('click', async () => {
     welcomeScreenEl.style.display = 'none';
     mainEl.classList.add('show');
     flipBtn.classList.add('show');
+    // Show today's usage count immediately
+    updateUsageUI(getTodayUsage());
   } catch {
     btn.disabled = false;
-    btn.textContent = savedKey ? 'Start' : 'Save & Start';
+    btn.textContent = 'Start';
     const existing = document.getElementById('welcome-err');
     if (!existing) {
       const errEl = document.createElement('p');
@@ -1163,11 +1400,94 @@ document.getElementById('start-btn').addEventListener('click', async () => {
   }
 });
 
-document.getElementById('key-input').addEventListener('keydown', e => {
-  if (e.key === 'Enter') document.getElementById('start-btn').click();
+flipBtn.addEventListener('click', () => flipCamera());
+
+// ── Soft nudge buttons ────────────────────────────────────────────────────────
+document.getElementById('nudge-signup-btn').addEventListener('click', () => {
+  softNudgeEl.classList.remove('show');
+  showSignInModal();
+});
+document.getElementById('nudge-dismiss-btn').addEventListener('click', () => {
+  nudgeDismissed = true;
+  softNudgeEl.classList.remove('show');
 });
 
-flipBtn.addEventListener('click', () => flipCamera());
+// ── Limit wall modal ──────────────────────────────────────────────────────────
+const limitModalEl = document.getElementById('limit-modal');
+
+function showLimitWall() {
+  limitModalEl.classList.add('show');
+}
+
+document.getElementById('wall-signup-btn').addEventListener('click', () => {
+  limitModalEl.classList.remove('show');
+  showSignInModal();
+});
+
+document.getElementById('wall-upgrade-btn').addEventListener('click', () => {
+  if (STRIPE_PAYMENT_LINK) {
+    window.open(STRIPE_PAYMENT_LINK, '_blank');
+  } else {
+    showToast('Stripe payment link not yet configured.');
+  }
+});
+
+document.getElementById('wall-close-btn').addEventListener('click', () => {
+  limitModalEl.classList.remove('show');
+});
+
+// ── Sign-in modal ─────────────────────────────────────────────────────────────
+const signinModalEl = document.getElementById('signin-modal');
+const signinMsgEl   = document.getElementById('signin-msg');
+const signinEmailEl = document.getElementById('signin-email');
+
+function showSignInModal() {
+  signinEmailEl.value = '';
+  signinMsgEl.textContent = '';
+  signinMsgEl.className = 'modal-msg';
+  signinModalEl.classList.add('show');
+  setTimeout(() => signinEmailEl.focus(), 100);
+}
+
+document.getElementById('signin-send-btn').addEventListener('click', async () => {
+  const email = signinEmailEl.value.trim();
+  if (!email || !email.includes('@')) {
+    signinMsgEl.textContent = 'Please enter a valid email.';
+    signinMsgEl.className = 'modal-msg error';
+    return;
+  }
+  const btn = document.getElementById('signin-send-btn');
+  btn.disabled = true;
+  btn.textContent = 'Sending…';
+  const error = await signInWithEmail(email);
+  btn.disabled = false;
+  btn.textContent = 'Send magic link';
+  if (error) {
+    signinMsgEl.textContent = `Error: ${error.message}`;
+    signinMsgEl.className = 'modal-msg error';
+  } else {
+    signinMsgEl.textContent = '✓ Check your email for the magic link!';
+    signinMsgEl.className = 'modal-msg success';
+  }
+});
+
+signinEmailEl.addEventListener('keydown', e => {
+  if (e.key === 'Enter') document.getElementById('signin-send-btn').click();
+});
+
+document.getElementById('signin-close-btn').addEventListener('click', () => {
+  signinModalEl.classList.remove('show');
+});
+
+// ── Toast ─────────────────────────────────────────────────────────────────────
+const toastEl = document.getElementById('toast');
+let toastTimer = null;
+function showToast(msg, duration = 3500) {
+  toastEl.textContent = msg;
+  toastEl.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toastEl.classList.remove('show'), duration);
+}
 </script>
 </body>
 </html>
