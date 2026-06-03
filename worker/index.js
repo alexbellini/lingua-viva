@@ -131,9 +131,15 @@ async function handleClaimSession(request, env) {
     return corsResponse(jsonResponse({ error: "Missing anonId" }, 400));
   }
 
-  // Transfer anon usage row to the user's account (if anon row exists and user has no row today)
   const today = todayUTC();
   const sb = supabaseClient(env);
+
+  // Ensure a public.users row exists for this user (created lazily on first sign-in)
+  await sb.from("users").upsert({
+    id: userId,
+  }, { onConflict: "id", ignoreDuplicates: true });
+
+  // Transfer anon usage row to the user's account (if anon row exists and user has no row today)
 
   // Get anon usage
   const anonUsage = await sb.from("usage")

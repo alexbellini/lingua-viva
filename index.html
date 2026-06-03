@@ -1443,6 +1443,9 @@ getOrCreateAnonId();
         await claimSession(getOrCreateAnonId(), session.access_token);
         posthog.identify(session.user.id, { email: session.user.email });
         history.replaceState(null, '', window.location.pathname);
+        // Close limit wall and sign-in modal in case they were open before the redirect
+        document.getElementById('limit-modal').classList.remove('show');
+        document.getElementById('signin-modal').classList.remove('show');
         showToast(`Signed in as ${session.user.email}`);
       }
     } catch {}
