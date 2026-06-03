@@ -1372,7 +1372,7 @@ async function runLoop() {
 }
 
 // ── Controls ──────────────────────────────────────────────────────────────────
-toggleBtn.addEventListener('click', () => {
+toggleBtn.addEventListener('click', async () => {
   if (isRunning) {
     posthog.capture('session_ended', { language: selectedLanguage, total_narrations: cycleCount, score_start: +scoreAtSessionStart.toFixed(3), score_end: +performanceScore.toFixed(3) });
     await saveSession();
