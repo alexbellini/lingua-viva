@@ -4,6 +4,14 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Lingua Viva — Language Immersion</title>
+  <!-- PostHog analytics -->
+  <script>
+    !function(t,e){var o,n,p,r;e.__SV||(window.posthog=e,e._i=[],e.init=function(i,s,a){function g(t,e){var o=e.split(".");2==o.length&&(t=t[o[0]],e=o[1]),t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}}(p=t.createElement("script")).type="text/javascript",p.crossOrigin="anonymous",p.async=!0,p.src=s.api_host+"/static/array.js",(r=t.getElementsByTagName("script")[0]).parentNode.insertBefore(p,r);var u=e;for(a!==void 0?u=e[a]=[]:a="posthog",u.people=u.people||[],u.toString=function(t){var e="posthog";return a!=="posthog"&&(e+="."+a),t||(e+=" (stub)"),e},u.people.toString=function(){return u.toString(1)+" (stub)"},o="capture identify alias people.set people.set_once set_config register register_once unregister opt_out_capturing has_opted_out_capturing opt_in_capturing reset isFeatureEnabled onFeatureFlags getFeatureFlag getFeatureFlagPayload reloadFeatureFlags group updateEarlyAccessFeatureEnrollment getEarlyAccessFeatures getActiveMatchingSurveys getSurveys getNextSurveyStep onSessionId setPersonPropertiesForFlags".split(" "),n=0;n<o.length;n++)g(u,o[n]);e._i.push([i,s,a])},e.__SV=1)}(document,window.posthog||(window.posthog=[]));
+    posthog.init('phc_wwPn9kDyb7R6BvaRwN4jQzZ4Ct8aYv2vXjrNUFUjueWE', {
+      api_host: 'https://us.i.posthog.com',
+      person_profiles: 'identified_only',
+    });
+  </script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -619,8 +627,8 @@
 
 // ── Config ────────────────────────────────────────────────────────────────────
 const WORKER_URL        = 'https://lingua-viva-worker.abellini09.workers.dev';
-const SUPABASE_URL      = 'https://frknnrtowdsbmkbwanjz.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZya25ucnRvd2RzYm1rYndhbmp6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAwMTU0OTksImV4cCI6MjA5NTU5MTQ5OX0.sfnJikOcXDAhI_uABr4bi93C6qKlDA2x1q4RX9Cyjqc';
+const SUPABASE_URL      = 'https://cccfkstknewwpqfxzaxs.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNjY2Zrc3RrbmV3d3BxZnh6YXhzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAxMjQ2MDEsImV4cCI6MjA5NTcwMDYwMX0.g1WYkJECRHg78CXuh77Ff0diPrv9ewefDgwrhWXal9Q';
 const STRIPE_PAYMENT_LINK = 'https://buy.stripe.com/bJeeVf0D9gVM4DNbhs2Nq00'; // TODO: paste your Stripe Payment Link URL here (Stripe → Payment Links → Create)
 const DAILY_LIMIT       = 15;
 const NUDGE_AT          = 12;
@@ -700,6 +708,7 @@ async function callWorker(endpoint, body) {
     body: JSON.stringify(body),
   });
   if (res.status === 402) {
+    posthog.capture('limit_hit', { language: selectedLanguage });
     showLimitWall();
     const err = new Error('daily_limit_reached');
     err.isLimitError = true;
@@ -757,10 +766,12 @@ let vocabSeen      = new Map(); // normalized word → cycle number first seen
 let vocabOriginals = new Map(); // normalized word → original Italian word (for prompts)
 let cycleCount     = 0;
 let performanceScore = 0.15;   // start firmly in A1 tier (< 0.35)
+let scoreAtSessionStart = 0.15;
 let currentFocusWord = null;   // set during displayNarration, consumed at end of loop
 let currentNarration = '';     // last narration text, used by Hear Again button
 let onHearAgain      = null;   // callback set by speakBackPhase to reset its auto-skip timer
 let nudgeDismissed   = false;  // soft nudge dismissed this session
+let nudgeShown       = false;  // track first show for analytics
 
 // ── Usage counter UI ───────────────────────────────────────────────────────────
 const usageCounterEl = document.getElementById('usage-counter');
@@ -772,6 +783,7 @@ function updateUsageUI(count) {
   usageCounterEl.classList.toggle('show', isRunning);
   if (!nudgeDismissed && count >= NUDGE_AT && count < DAILY_LIMIT) {
     softNudgeEl.classList.add('show');
+    if (!nudgeShown) { nudgeShown = true; posthog.capture('upgrade_prompt_shown', { trigger: 'soft_nudge' }); }
   }
 }
 
@@ -1197,6 +1209,8 @@ async function speakBackPhase(phrase) {
       else if (result === 'close') performanceScore = Math.min(1, performanceScore + 0.03);
       else                         performanceScore = Math.max(0, performanceScore - 0.10);
 
+      posthog.capture('speakback_scored', { result, language: selectedLanguage, heard_something: heard !== null });
+
       // Show feedback
       const messages = { exact: 'Perfect! ✓', close: 'Close enough ✓', off: 'Keep practicing' };
       feedbackLabel.className   = result;
@@ -1248,6 +1262,7 @@ async function runLoop() {
     if (!isRunning) break;
     hideError(mainError);
 
+    posthog.capture('narration_completed', { language: selectedLanguage, level: narration.level, cycle_count: cycleCount, performance_score: +performanceScore.toFixed(3) });
     displayNarration(narration);         // [NEW] handles highlight + level pill
 
     currentNarration = narration.narration.replace(/[.?!]+$/, '').trim();
@@ -1280,6 +1295,7 @@ async function runLoop() {
 // ── Controls ──────────────────────────────────────────────────────────────────
 toggleBtn.addEventListener('click', () => {
   if (isRunning) {
+    posthog.capture('session_ended', { language: selectedLanguage, total_narrations: cycleCount, score_start: +scoreAtSessionStart.toFixed(3), score_end: +performanceScore.toFixed(3) });
     isRunning = false;
     speechSynthesis.cancel();
     speakBackEl.classList.remove('show');
@@ -1289,8 +1305,10 @@ toggleBtn.addEventListener('click', () => {
     // Reset all session state on Stop
     vocabSeen.clear();
     vocabOriginals.clear();
-    cycleCount       = 0;
-    performanceScore = 0.15;
+    cycleCount          = 0;
+    performanceScore    = 0.15;
+    scoreAtSessionStart = 0.15;
+    nudgeShown          = false;
     currentFocusWord = null;
     currentNarration = '';
     hearAgainBtn.disabled = true;
@@ -1300,6 +1318,7 @@ toggleBtn.addEventListener('click', () => {
     softNudgeEl.classList.remove('show');
   } else {
     isRunning = true;
+    scoreAtSessionStart = performanceScore;
     toggleBtn.textContent = 'Stop';
     toggleBtn.classList.add('running');
     hideError(mainError);
@@ -1341,6 +1360,7 @@ getOrCreateAnonId();
       const { data: { session } } = await sb.auth.getSession();
       if (session) {
         await claimSession(getOrCreateAnonId(), session.access_token);
+        posthog.identify(session.user.id, { email: session.user.email });
         history.replaceState(null, '', window.location.pathname);
         showToast(`Signed in as ${session.user.email}`);
       }
@@ -1384,8 +1404,8 @@ document.getElementById('start-btn').addEventListener('click', async () => {
     welcomeScreenEl.style.display = 'none';
     mainEl.classList.add('show');
     flipBtn.classList.add('show');
-    // Show today's usage count immediately
     updateUsageUI(getTodayUsage());
+    posthog.capture('session_started', { language: selectedLanguage, performance_score: performanceScore });
   } catch {
     btn.disabled = false;
     btn.textContent = 'Start';
@@ -1417,6 +1437,7 @@ const limitModalEl = document.getElementById('limit-modal');
 
 function showLimitWall() {
   limitModalEl.classList.add('show');
+  posthog.capture('upgrade_prompt_shown', { trigger: 'limit_wall' });
 }
 
 document.getElementById('wall-signup-btn').addEventListener('click', () => {
@@ -1425,6 +1446,7 @@ document.getElementById('wall-signup-btn').addEventListener('click', () => {
 });
 
 document.getElementById('wall-upgrade-btn').addEventListener('click', () => {
+  posthog.capture('upgrade_clicked', { language: selectedLanguage });
   if (STRIPE_PAYMENT_LINK) {
     window.open(STRIPE_PAYMENT_LINK, '_blank');
   } else {
