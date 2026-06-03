@@ -321,7 +321,6 @@ async function incrementUsage(identityKey, userId, env) {
   const sb = supabaseClient(env);
   const today = todayUTC();
 
-  // Upsert: insert row or increment existing count
   await sb.rpc("increment_usage", {
     p_identity_key: identityKey,
     p_date: today,
@@ -381,7 +380,11 @@ function supabaseClient(env) {
         method: "POST",
         headers,
         body: JSON.stringify(params),
-      }).then(r => r.json());
+      }).then(async r => {
+        const text = await r.text();
+        if (!text) return { data: null, error: null };
+        try { return JSON.parse(text); } catch { return { data: null, error: text }; }
+      });
     },
   };
 }
