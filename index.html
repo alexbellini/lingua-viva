@@ -694,6 +694,81 @@ async function claimSession(anonId, jwt) {
   } catch {}
 }
 
+// ── Persistence helpers (Pro users only) ──────────────────────────────────────
+
+async function loadProfile() {
+  const jwt = await getJWT();
+  if (!jwt) return;
+  userIsSignedIn = true;
+  try {
+    const anonId = getOrCreateAnonId();
+    const res = await fetch(`${WORKER_URL}/api/profile`, {
+      headers: { 'X-Session-ID': anonId, 'Authorization': `Bearer ${jwt}` },
+    });
+    if (!res.ok) return;
+    const profile = await res.json();
+    userIsPro = profile.isPro ?? false;
+    if (!userIsPro) return;
+
+    // Restore vocab
+    if (profile.vocab?.length > 0) {
+      for (const { word_normalized, word_original } of profile.vocab) {
+        vocabSeen.set(word_normalized, 0);
+        vocabOriginals.set(word_normalized, word_original);
+      }
+    }
+
+    // Restore performance score
+    if (typeof profile.performanceScore === 'number') {
+      performanceScore    = profile.performanceScore;
+      scoreAtSessionStart = profile.performanceScore;
+    }
+
+    if (profile.vocab?.length > 0) {
+      showToast(`Progress loaded — ${profile.vocab.length} words remembered`);
+    }
+  } catch {}
+}
+
+function saveCycle(wordNormalized, wordOriginal) {
+  if (!userIsPro || !userIsSignedIn) return;
+  getJWT().then(jwt => {
+    if (!jwt) return;
+    fetch(`${WORKER_URL}/api/save-cycle`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Session-ID': getOrCreateAnonId(),
+        'Authorization': `Bearer ${jwt}`,
+      },
+      body: JSON.stringify({ wordNormalized, wordOriginal, language: selectedLanguage }),
+    }).catch(() => {});
+  });
+}
+
+async function saveSession() {
+  if (!userIsPro || !userIsSignedIn || cycleCount === 0) return;
+  const jwt = await getJWT();
+  if (!jwt) return;
+  try {
+    await fetch(`${WORKER_URL}/api/save-session`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Session-ID': getOrCreateAnonId(),
+        'Authorization': `Bearer ${jwt}`,
+      },
+      body: JSON.stringify({
+        language: selectedLanguage,
+        startedAt: sessionStartedAt,
+        narrationCount: cycleCount,
+        scoreStart: scoreAtSessionStart,
+        scoreEnd: performanceScore,
+      }),
+    });
+  } catch {}
+}
+
 // ── Worker API calls ───────────────────────────────────────────────────────────
 async function callWorker(endpoint, body) {
   const anonId = getOrCreateAnonId();
@@ -767,6 +842,9 @@ let vocabOriginals = new Map(); // normalized word → original Italian word (fo
 let cycleCount     = 0;
 let performanceScore = 0.15;   // start firmly in A1 tier (< 0.35)
 let scoreAtSessionStart = 0.15;
+let sessionStartedAt    = null;
+let userIsPro           = false;
+let userIsSignedIn      = false;
 let currentFocusWord = null;   // set during displayNarration, consumed at end of loop
 let currentNarration = '';     // last narration text, used by Hear Again button
 let onHearAgain      = null;   // callback set by speakBackPhase to reset its auto-skip timer
@@ -1282,6 +1360,7 @@ async function runLoop() {
       if (normalized && !vocabSeen.has(normalized)) {
         vocabSeen.set(normalized, cycleCount);
         vocabOriginals.set(normalized, currentFocusWord);
+        saveCycle(normalized, currentFocusWord);
       }
     }
 
@@ -1296,6 +1375,7 @@ async function runLoop() {
 toggleBtn.addEventListener('click', () => {
   if (isRunning) {
     posthog.capture('session_ended', { language: selectedLanguage, total_narrations: cycleCount, score_start: +scoreAtSessionStart.toFixed(3), score_end: +performanceScore.toFixed(3) });
+    await saveSession();
     isRunning = false;
     speechSynthesis.cancel();
     speakBackEl.classList.remove('show');
@@ -1359,6 +1439,7 @@ getOrCreateAnonId();
       const sb = await initSupabase();
       const { data: { session } } = await sb.auth.getSession();
       if (session) {
+        userIsSignedIn = true;
         await claimSession(getOrCreateAnonId(), session.access_token);
         posthog.identify(session.user.id, { email: session.user.email });
         history.replaceState(null, '', window.location.pathname);
@@ -1400,12 +1481,14 @@ document.getElementById('start-btn').addEventListener('click', async () => {
   btn.textContent = 'Starting…';
   try {
     await Promise.all([startCamera(), loadVoices()]);
+    await loadProfile();
+    sessionStartedAt = new Date().toISOString();
     clearInterval(greetInterval);
     welcomeScreenEl.style.display = 'none';
     mainEl.classList.add('show');
     flipBtn.classList.add('show');
     updateUsageUI(getTodayUsage());
-    posthog.capture('session_started', { language: selectedLanguage, performance_score: performanceScore });
+    posthog.capture('session_started', { language: selectedLanguage, performance_score: performanceScore, is_pro: userIsPro });
   } catch {
     btn.disabled = false;
     btn.textContent = 'Start';

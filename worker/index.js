@@ -36,6 +36,15 @@ export default {
       if (url.pathname === "/api/stripe-webhook" && request.method === "POST") {
         return await handleStripeWebhook(request, env);
       }
+      if (url.pathname === "/api/profile" && request.method === "GET") {
+        return await handleProfile(request, env);
+      }
+      if (url.pathname === "/api/save-cycle" && request.method === "POST") {
+        return await handleSaveCycle(request, env);
+      }
+      if (url.pathname === "/api/save-session" && request.method === "POST") {
+        return await handleSaveSession(request, env);
+      }
       return corsResponse(new Response("Not found", { status: 404 }));
     } catch (err) {
       console.error("Worker error:", err);
@@ -183,6 +192,88 @@ async function handleStripeWebhook(request, env) {
 }
 
 // ---------------------------------------------------------------------------
+// /api/profile  (GET — returns isPro, performanceScore, vocab for signed-in users)
+// ---------------------------------------------------------------------------
+
+async function handleProfile(request, env) {
+  const { userId, isPro } = await resolveIdentity(request, env);
+  if (!userId) return corsResponse(jsonResponse({ error: "Must be signed in" }, 401));
+
+  const sb = supabaseClient(env);
+
+  // Latest session score
+  const { data: lastSession } = await sb.from("sessions")
+    .select("score_end")
+    .eq("user_id", userId)
+    .order("started_at", { ascending: false })
+    .limit(1)
+    .single();
+
+  // Vocab — only for Pro users
+  let vocab = [];
+  if (isPro) {
+    const { data } = await sb.from("vocab")
+      .select("word_normalized,word_original,language,times_seen")
+      .eq("user_id", userId);
+    vocab = data ?? [];
+  }
+
+  return corsResponse(jsonResponse({
+    isPro,
+    performanceScore: lastSession?.score_end ?? null,
+    vocab,
+  }));
+}
+
+// ---------------------------------------------------------------------------
+// /api/save-cycle  (POST — upsert one vocab word, Pro only)
+// ---------------------------------------------------------------------------
+
+async function handleSaveCycle(request, env) {
+  const { userId, isPro } = await resolveIdentity(request, env);
+  if (!userId || !isPro) return corsResponse(jsonResponse({ ok: false }));
+
+  const { wordNormalized, wordOriginal, language } = await request.json();
+  if (!wordNormalized || !wordOriginal || !language) {
+    return corsResponse(jsonResponse({ error: "Missing fields" }, 400));
+  }
+
+  const sb = supabaseClient(env);
+  await sb.rpc("upsert_vocab_word", {
+    p_user_id: userId,
+    p_word_normalized: wordNormalized,
+    p_word_original: wordOriginal,
+    p_language: language,
+  });
+
+  return corsResponse(jsonResponse({ ok: true }));
+}
+
+// ---------------------------------------------------------------------------
+// /api/save-session  (POST — record completed session, Pro only)
+// ---------------------------------------------------------------------------
+
+async function handleSaveSession(request, env) {
+  const { userId, isPro } = await resolveIdentity(request, env);
+  if (!userId || !isPro) return corsResponse(jsonResponse({ ok: false }));
+
+  const { language, startedAt, narrationCount, scoreStart, scoreEnd } = await request.json();
+
+  const sb = supabaseClient(env);
+  await sb.from("sessions").insert({
+    user_id: userId,
+    language,
+    started_at: startedAt,
+    ended_at: new Date().toISOString(),
+    narration_count: narrationCount,
+    score_start: scoreStart,
+    score_end: scoreEnd,
+  });
+
+  return corsResponse(jsonResponse({ ok: true }));
+}
+
+// ---------------------------------------------------------------------------
 // Identity resolution
 // Accepts: anon UUID via X-Session-ID header, or Supabase JWT via Authorization header
 // Returns: { identity, userId, isPro }
@@ -311,6 +402,23 @@ class SupabaseQueryBuilder {
   eq(col, val) {
     this._url.searchParams.set(col, `eq.${val}`);
     return this;
+  }
+
+  order(col, { ascending = true } = {}) {
+    this._url.searchParams.set("order", `${col}.${ascending ? "asc" : "desc"}`);
+    return this;
+  }
+
+  limit(n) {
+    this._url.searchParams.set("limit", String(n));
+    return this;
+  }
+
+  insert(data) {
+    this._method = "POST";
+    this._headers["Prefer"] = "return=representation";
+    this._body = JSON.stringify(data);
+    return this._execute();
   }
 
   single() {
