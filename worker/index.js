@@ -477,26 +477,20 @@ class SupabaseQueryBuilder {
 
 async function verifySupabaseJWT(token, env) {
   try {
-    // Decode header to get kid
-    const [headerB64] = token.split(".");
-    const header = JSON.parse(atob(headerB64.replace(/-/g, "+").replace(/_/g, "/")));
+    const [headerB64, payloadB64, sigB64] = token.split(".");
+    if (!headerB64 || !payloadB64 || !sigB64) return null;
 
-    // Fetch JWKS from Supabase
-    const jwksRes = await fetch(`${env.SUPABASE_URL}/auth/v1/.well-known/jwks.json`);
-    const jwks = await jwksRes.json();
-    const jwk = jwks.keys.find(k => k.kid === header.kid) ?? jwks.keys[0];
-
-    // Import key and verify
+    // Supabase uses HS256 — verify with the JWT secret
     const key = await crypto.subtle.importKey(
-      "jwk", jwk,
-      { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
+      "raw",
+      new TextEncoder().encode(env.SUPABASE_JWT_SECRET),
+      { name: "HMAC", hash: "SHA-256" },
       false, ["verify"]
     );
 
-    const [, payloadB64, sigB64] = token.split(".");
-    const data = new TextEncoder().encode(`${token.split(".")[0]}.${payloadB64}`);
+    const data = new TextEncoder().encode(`${headerB64}.${payloadB64}`);
     const sig = base64UrlDecode(sigB64);
-    const valid = await crypto.subtle.verify("RSASSA-PKCS1-v1_5", key, sig, data);
+    const valid = await crypto.subtle.verify("HMAC", key, sig, data);
     if (!valid) return null;
 
     const payload = JSON.parse(atob(payloadB64.replace(/-/g, "+").replace(/_/g, "/")));
