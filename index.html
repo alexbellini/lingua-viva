@@ -698,6 +698,7 @@ async function claimSession(anonId, jwt) {
 
 async function loadProfile() {
   const jwt = await getJWT();
+  console.log('[lv] loadProfile: jwt=', jwt ? 'present' : 'null');
   if (!jwt) return;
   userIsSignedIn = true;
   try {
@@ -705,8 +706,9 @@ async function loadProfile() {
     const res = await fetch(`${WORKER_URL}/api/profile`, {
       headers: { 'X-Session-ID': anonId, 'Authorization': `Bearer ${jwt}` },
     });
-    if (!res.ok) return;
+    if (!res.ok) { console.log('[lv] loadProfile: response not ok', res.status); return; }
     const profile = await res.json();
+    console.log('[lv] loadProfile: isPro=', profile.isPro, 'vocabCount=', profile.vocab?.length);
     userIsPro = profile.isPro ?? false;
     if (!userIsPro) return;
 
@@ -731,6 +733,7 @@ async function loadProfile() {
 }
 
 function saveCycle(wordNormalized, wordOriginal) {
+  console.log('[lv] saveCycle: userIsPro=', userIsPro, 'userIsSignedIn=', userIsSignedIn, 'word=', wordNormalized);
   if (!userIsPro || !userIsSignedIn) return;
   getJWT().then(jwt => {
     if (!jwt) return;
