@@ -1233,7 +1233,12 @@ async function speakBackPhase(phrase) {
   speakBackEl.classList.add('show');
 
   if (!hasSR) {
-    await delay(8000);
+    speakBtn.textContent = '→ Continue';
+    await new Promise(resolve => {
+      const autoSkip = setTimeout(resolve, 5000);
+      speakBtn.onclick = () => { clearTimeout(autoSkip); resolve(); };
+    });
+    speakBtn.onclick = null;
     speakBackEl.classList.remove('show');
     return;
   }
