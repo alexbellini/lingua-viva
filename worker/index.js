@@ -220,7 +220,8 @@ async function handleProfile(request, env) {
   if (isPro) {
     const { data } = await sb.from("vocab")
       .select("word_normalized,word_original,language,times_seen")
-      .eq("user_id", userId);
+      .eq("user_id", userId)
+      .execute();
     vocab = data ?? [];
   }
 
@@ -427,6 +428,10 @@ class SupabaseQueryBuilder {
     this._method = "POST";
     this._headers["Prefer"] = "return=representation";
     this._body = JSON.stringify(data);
+    return this._execute();
+  }
+
+  execute() {
     return this._execute();
   }
 
