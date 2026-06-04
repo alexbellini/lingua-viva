@@ -724,9 +724,6 @@ async function loadProfile() {
       scoreAtSessionStart = profile.performanceScore;
     }
 
-    if (profile.vocab?.length > 0) {
-      showToast(`Progress loaded — ${profile.vocab.length} words remembered`);
-    }
   } catch {}
 }
 
@@ -1497,6 +1494,7 @@ document.getElementById('start-btn').addEventListener('click', async () => {
     flipBtn.classList.add('show');
     updateUsageUI(getTodayUsage());
     posthog.capture('session_started', { language: selectedLanguage, performance_score: performanceScore, is_pro: userIsPro });
+    if (userIsPro && vocabSeen.size > 0) showToast(`Progress loaded — ${vocabSeen.size} words remembered`);
   } catch {
     btn.disabled = false;
     btn.textContent = 'Start';
