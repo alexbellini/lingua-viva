@@ -670,8 +670,8 @@ async function initSupabase() {
 }
 
 async function getJWT() {
-  if (!_supabase) return null;
-  const { data } = await _supabase.auth.getSession();
+  const sb = await initSupabase();
+  const { data } = await sb.auth.getSession();
   return data?.session?.access_token ?? null;
 }
 

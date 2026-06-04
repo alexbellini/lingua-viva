@@ -477,26 +477,16 @@ class SupabaseQueryBuilder {
 
 async function verifySupabaseJWT(token, env) {
   try {
-    const [headerB64, payloadB64, sigB64] = token.split(".");
-    if (!headerB64 || !payloadB64 || !sigB64) return null;
-
-    // Supabase uses HS256 — verify with the JWT secret
-    const key = await crypto.subtle.importKey(
-      "raw",
-      new TextEncoder().encode(env.SUPABASE_JWT_SECRET),
-      { name: "HMAC", hash: "SHA-256" },
-      false, ["verify"]
-    );
-
-    const data = new TextEncoder().encode(`${headerB64}.${payloadB64}`);
-    const sig = base64UrlDecode(sigB64);
-    const valid = await crypto.subtle.verify("HMAC", key, sig, data);
-    if (!valid) return null;
-
-    const payload = JSON.parse(atob(payloadB64.replace(/-/g, "+").replace(/_/g, "/")));
-    if (payload.exp < Date.now() / 1000) return null;
-
-    return { id: payload.sub, email: payload.email };
+    const res = await fetch(`${env.SUPABASE_URL}/auth/v1/user`, {
+      headers: {
+        "apikey": env.SUPABASE_ANON_KEY,
+        "Authorization": `Bearer ${token}`,
+      },
+    });
+    if (!res.ok) return null;
+    const user = await res.json();
+    if (!user.id) return null;
+    return { id: user.id, email: user.email };
   } catch {
     return null;
   }
@@ -548,7 +538,7 @@ function isValidUUID(str) {
 }
 
 function base64UrlDecode(str) {
-  const padded = str.replace(/-/g, "+").replace(/_/g, "/");
+  const padded = str.replace(/-/g, "+").replace(/_/g, "/").padEnd(Math.ceil(str.length / 4) * 4, "=");
   const binary = atob(padded);
   return new Uint8Array([...binary].map(c => c.charCodeAt(0)));
 }
