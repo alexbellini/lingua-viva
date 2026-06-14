@@ -530,6 +530,98 @@
 
     /* ── Main error ── */
     #main-error { margin-top: 0; }
+
+    /* ── Progress button ── */
+    #progress-btn {
+      background: transparent;
+      border: 1px solid #25252d;
+      color: #555;
+      font-size: 0.78rem;
+      padding: 4px 12px;
+      border-radius: 8px;
+      display: none;
+      align-self: center;
+    }
+    #progress-btn.show { display: block; }
+    #progress-btn:hover { border-color: #444; color: #888; }
+
+    /* ── Progress modal ── */
+    #progress-modal .modal-box {
+      max-width: 420px;
+      text-align: left;
+      gap: 1.1rem;
+    }
+
+    #progress-modal .modal-box h2 {
+      text-align: center;
+    }
+
+    .progress-stats {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0.6rem;
+    }
+
+    .progress-stat {
+      background: #111115;
+      border: 1px solid #25252d;
+      border-radius: 10px;
+      padding: 0.75rem 0.6rem;
+      text-align: center;
+    }
+
+    .progress-stat .stat-num {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: #6b7df5;
+      line-height: 1.1;
+    }
+
+    .progress-stat .stat-label {
+      font-size: 0.7rem;
+      color: #555;
+      margin-top: 0.2rem;
+      line-height: 1.3;
+    }
+
+    .progress-section-label {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: #444;
+      margin-bottom: 0.4rem;
+    }
+
+    #progress-sparkline {
+      width: 100%;
+      height: 52px;
+      display: block;
+    }
+
+    .progress-vocab-wrap {
+      line-height: 1.8;
+      font-size: 0.85rem;
+      color: #777;
+      word-spacing: 0.1em;
+    }
+
+    .progress-vocab-wrap .vocab-word {
+      color: #a8b4f8;
+      margin-right: 0.3rem;
+    }
+
+    #progress-loading {
+      text-align: center;
+      color: #444;
+      font-size: 0.85rem;
+      padding: 1rem 0;
+    }
+
+    #progress-error {
+      text-align: center;
+      color: #f87171;
+      font-size: 0.82rem;
+    }
   </style>
 </head>
 <body>
@@ -560,6 +652,7 @@
   </div>
 
   <button id="toggle-btn">Start</button>
+  <button id="progress-btn">📊 My Progress</button>
 
   <div id="usage-counter">
     <span class="usage-num" id="usage-used">0</span> / 15 narrations today
@@ -616,6 +709,43 @@
     <button class="btn-primary" id="signin-send-btn">Send magic link</button>
     <div class="modal-msg" id="signin-msg"></div>
     <button class="btn-secondary" id="signin-close-btn">Cancel</button>
+  </div>
+</div>
+
+<!-- ── Progress modal ── -->
+<div class="modal-overlay" id="progress-modal">
+  <div class="modal-box">
+    <h2>My Progress</h2>
+    <div id="progress-loading">Loading…</div>
+    <div id="progress-error" style="display:none"></div>
+    <div id="progress-content" style="display:none">
+      <div class="progress-stats">
+        <div class="progress-stat">
+          <div class="stat-num" id="prog-week">—</div>
+          <div class="stat-label">narrations<br>this week</div>
+        </div>
+        <div class="progress-stat">
+          <div class="stat-num" id="prog-total">—</div>
+          <div class="stat-label">narrations<br>all time</div>
+        </div>
+        <div class="progress-stat">
+          <div class="stat-num" id="prog-vocab">—</div>
+          <div class="stat-label">words<br>learned</div>
+        </div>
+      </div>
+      <div id="prog-trend-wrap" style="display:none">
+        <div class="progress-section-label">Performance trend</div>
+        <svg id="progress-sparkline" viewBox="0 0 300 52" preserveAspectRatio="none">
+          <polyline id="sparkline-line" fill="none" stroke="#6b7df5" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" points=""/>
+          <polyline id="sparkline-fill" fill="rgba(107,125,245,0.08)" stroke="none" points=""/>
+        </svg>
+      </div>
+      <div id="prog-vocab-wrap" style="display:none">
+        <div class="progress-section-label">Recent words</div>
+        <div class="progress-vocab-wrap" id="prog-vocab-list"></div>
+      </div>
+    </div>
+    <button class="btn-secondary" id="progress-close-btn">Close</button>
   </div>
 </div>
 
@@ -709,6 +839,7 @@ async function loadProfile() {
     const profile = await res.json();
     userIsPro = profile.isPro ?? false;
     if (!userIsPro) return;
+    progressBtn.classList.add('show');
 
     // Restore vocab
     if (profile.vocab?.length > 0) {
@@ -1588,6 +1719,82 @@ signinEmailEl.addEventListener('keydown', e => {
 
 document.getElementById('signin-close-btn').addEventListener('click', () => {
   signinModalEl.classList.remove('show');
+});
+
+// ── Progress modal ────────────────────────────────────────────────────────────
+const progressModalEl  = document.getElementById('progress-modal');
+const progressBtn      = document.getElementById('progress-btn');
+const progressLoading  = document.getElementById('progress-loading');
+const progressError    = document.getElementById('progress-error');
+const progressContent  = document.getElementById('progress-content');
+
+function renderSparkline(scores) {
+  if (scores.length < 2) return;
+  const w = 300, h = 52, pad = 4;
+  const minS = Math.min(...scores);
+  const maxS = Math.max(...scores);
+  const range = maxS - minS || 0.01;
+  const pts = scores.map((s, i) => {
+    const x = pad + (i / (scores.length - 1)) * (w - pad * 2);
+    const y = h - pad - ((s - minS) / range) * (h - pad * 2);
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  });
+  document.getElementById('sparkline-line').setAttribute('points', pts.join(' '));
+  // Filled area: add bottom-left and bottom-right corners
+  const fill = [
+    `${pad},${h - pad}`,
+    ...pts,
+    `${(w - pad).toFixed(1)},${h - pad}`,
+  ];
+  document.getElementById('sparkline-fill').setAttribute('points', fill.join(' '));
+  document.getElementById('prog-trend-wrap').style.display = 'block';
+}
+
+async function openProgressModal() {
+  progressLoading.style.display  = 'block';
+  progressError.style.display    = 'none';
+  progressContent.style.display  = 'none';
+  progressModalEl.classList.add('show');
+
+  try {
+    const jwt = await getJWT();
+    const anonId = getOrCreateAnonId();
+    const res = await fetch(`${WORKER_URL}/api/progress`, {
+      headers: {
+        'X-Session-ID': anonId,
+        ...(jwt ? { 'Authorization': `Bearer ${jwt}` } : {}),
+      },
+    });
+    if (!res.ok) throw new Error(`${res.status}`);
+    const data = await res.json();
+
+    document.getElementById('prog-week').textContent  = data.thisWeekNarrations ?? 0;
+    document.getElementById('prog-total').textContent = data.totalNarrations ?? 0;
+    document.getElementById('prog-vocab').textContent = data.vocabCount ?? 0;
+
+    renderSparkline(data.scoreTrend ?? []);
+
+    const vocab = data.recentVocab ?? [];
+    if (vocab.length > 0) {
+      const listEl = document.getElementById('prog-vocab-list');
+      listEl.innerHTML = vocab.map(w => `<span class="vocab-word">${escapeHTML(w)}</span>`).join('· ');
+      document.getElementById('prog-vocab-wrap').style.display = 'block';
+    } else {
+      document.getElementById('prog-vocab-wrap').style.display = 'none';
+    }
+
+    progressLoading.style.display = 'none';
+    progressContent.style.display = 'block';
+  } catch (err) {
+    progressLoading.style.display = 'none';
+    progressError.style.display   = 'block';
+    progressError.textContent     = 'Could not load progress. Try again.';
+  }
+}
+
+progressBtn.addEventListener('click', openProgressModal);
+document.getElementById('progress-close-btn').addEventListener('click', () => {
+  progressModalEl.classList.remove('show');
 });
 
 // ── Toast ─────────────────────────────────────────────────────────────────────
