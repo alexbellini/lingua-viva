@@ -45,6 +45,9 @@ export default {
       if (url.pathname === "/api/save-session" && request.method === "POST") {
         return await handleSaveSession(request, env);
       }
+      if (url.pathname === "/api/progress" && request.method === "GET") {
+        return await handleProgress(request, env);
+      }
       return corsResponse(new Response("Not found", { status: 404 }));
     } catch (err) {
       console.error("Worker error:", err);
@@ -278,6 +281,59 @@ async function handleSaveSession(request, env) {
   });
 
   return corsResponse(jsonResponse({ ok: true }));
+}
+
+// ---------------------------------------------------------------------------
+// /api/progress  (GET — aggregates sessions + vocab for Pro users)
+// ---------------------------------------------------------------------------
+
+async function handleProgress(request, env) {
+  const { userId, isPro } = await resolveIdentity(request, env);
+  if (!userId || !isPro) return corsResponse(jsonResponse({ error: "Pro required" }, 403));
+
+  const sb = supabaseClient(env);
+
+  // Last 50 sessions (for totals + score trend)
+  const { data: sessions } = await sb.from("sessions")
+    .select("narration_count,score_end,started_at")
+    .eq("user_id", userId)
+    .order("started_at", { ascending: false })
+    .limit(50)
+    .execute();
+
+  const allSessions = sessions ?? [];
+  const totalNarrations = allSessions.reduce((sum, s) => sum + (s.narration_count || 0), 0);
+
+  const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+  const thisWeekNarrations = allSessions
+    .filter(s => s.started_at >= weekAgo)
+    .reduce((sum, s) => sum + (s.narration_count || 0), 0);
+
+  // Score trend: last 10 sessions in chronological order, non-null scores only
+  const scoreTrend = allSessions
+    .slice(0, 10)
+    .reverse()
+    .map(s => s.score_end)
+    .filter(s => s !== null && s !== undefined);
+
+  // Vocab
+  const { data: vocabData } = await sb.from("vocab")
+    .select("word_original,language,times_seen,last_seen_at")
+    .eq("user_id", userId)
+    .order("last_seen_at", { ascending: false })
+    .limit(50)
+    .execute();
+
+  const vocab = vocabData ?? [];
+
+  return corsResponse(jsonResponse({
+    totalNarrations,
+    thisWeekNarrations,
+    sessionCount: allSessions.length,
+    scoreTrend,
+    vocabCount: vocab.length,
+    recentVocab: vocab.slice(0, 30).map(v => v.word_original),
+  }));
 }
 
 // ---------------------------------------------------------------------------
