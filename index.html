@@ -592,10 +592,23 @@
       margin-bottom: 0.4rem;
     }
 
-    #progress-sparkline {
-      width: 100%;
-      height: 52px;
-      display: block;
+    .sparkline-wrap {
+      display: flex;
+      align-items: stretch;
+      gap: 4px;
+    }
+
+    .sparkline-labels {
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      font-size: 0.6rem;
+      font-weight: 600;
+      color: #6b7df5;
+      padding: 2px 0;
+      min-width: 14px;
+      text-align: right;
+      opacity: 0.65;
     }
 
     .progress-vocab-wrap {
@@ -735,10 +748,17 @@
       </div>
       <div id="prog-trend-wrap" style="display:none">
         <div class="progress-section-label">Performance trend</div>
-        <svg id="progress-sparkline" viewBox="0 0 300 52" preserveAspectRatio="none">
-          <polyline id="sparkline-line" fill="none" stroke="#6b7df5" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" points=""/>
-          <polyline id="sparkline-fill" fill="rgba(107,125,245,0.08)" stroke="none" points=""/>
-        </svg>
+        <div class="sparkline-wrap">
+          <div class="sparkline-labels"><span>B1</span><span>A2</span><span>A1</span></div>
+          <svg id="progress-sparkline" viewBox="0 0 280 64" style="flex:1;height:64px;display:block" preserveAspectRatio="none">
+            <rect x="0" y="6"  width="280" height="14" fill="rgba(107,125,245,0.18)" rx="1"/>
+            <rect x="0" y="20" width="280" height="18" fill="rgba(107,125,245,0.10)"/>
+            <rect x="0" y="38" width="280" height="20" fill="rgba(107,125,245,0.05)"/>
+            <line x1="0" y1="20" x2="280" y2="20" stroke="rgba(107,125,245,0.2)" stroke-width="0.5"/>
+            <line x1="0" y1="38" x2="280" y2="38" stroke="rgba(107,125,245,0.2)" stroke-width="0.5"/>
+            <polyline id="sparkline-line" fill="none" stroke="#6b7df5" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" points=""/>
+          </svg>
+        </div>
       </div>
       <div id="prog-vocab-wrap" style="display:none">
         <div class="progress-section-label">Recent words</div>
@@ -1730,23 +1750,15 @@ const progressContent  = document.getElementById('progress-content');
 
 function renderSparkline(scores) {
   if (scores.length < 2) return;
-  const w = 300, h = 52, pad = 4;
-  const minS = Math.min(...scores);
-  const maxS = Math.max(...scores);
-  const range = maxS - minS || 0.01;
+  // Fixed 0–1 scale matching CEFR band boundaries in the SVG (viewBox 280×64, pad=6)
+  // Band boundaries: B1 ≥0.73 (y≤20), A2 0.38–0.73 (y 20–38), A1 <0.38 (y≥38)
+  const w = 280, h = 64, pad = 6;
+  const scoreToY = s => (h - pad) - Math.max(0, Math.min(1, s)) * (h - pad * 2);
   const pts = scores.map((s, i) => {
-    const x = pad + (i / (scores.length - 1)) * (w - pad * 2);
-    const y = h - pad - ((s - minS) / range) * (h - pad * 2);
-    return `${x.toFixed(1)},${y.toFixed(1)}`;
+    const x = (i / (scores.length - 1)) * w;
+    return `${x.toFixed(1)},${scoreToY(s).toFixed(1)}`;
   });
   document.getElementById('sparkline-line').setAttribute('points', pts.join(' '));
-  // Filled area: add bottom-left and bottom-right corners
-  const fill = [
-    `${pad},${h - pad}`,
-    ...pts,
-    `${(w - pad).toFixed(1)},${h - pad}`,
-  ];
-  document.getElementById('sparkline-fill').setAttribute('points', fill.join(' '));
   document.getElementById('prog-trend-wrap').style.display = 'block';
 }
 
