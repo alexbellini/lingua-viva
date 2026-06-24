@@ -112,3 +112,4 @@ git push origin main
 - Magic link rate limit: ~4/hour on Supabase free tier
 - Local usage counter uses UTC dates — can appear stale for UTC-offset users
 - `getNarration` uses regex to extract JSON from Claude response (handles stray preamble)
+- **Supabase paused + expired session = startup hang**: if the Supabase project is paused and a user has a stored-but-expired session token, `getSession()` fires a refresh network call that never resolves. Fixed by racing `loadProfile()` against a 5s timeout in the Start button handler — startup continues unauthenticated if it stalls
