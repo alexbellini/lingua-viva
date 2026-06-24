@@ -1637,7 +1637,7 @@ document.getElementById('start-btn').addEventListener('click', async () => {
   btn.textContent = 'Starting…';
   try {
     await Promise.all([startCamera(), loadVoices()]);
-    await loadProfile();
+    await Promise.race([loadProfile(), new Promise(r => setTimeout(r, 5000))]);
     sessionStartedAt = new Date().toISOString();
     clearInterval(greetInterval);
     welcomeScreenEl.style.display = 'none';
